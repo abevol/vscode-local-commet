@@ -11,6 +11,7 @@
   "goToTagDeclaration": "跳转到标签声明",
   "refreshTree": "刷新",
   "deleteCommentFromTree": "删除注释",
+  "clearFileComments": "清除文件所有注释",
   "editCommentFromTree": "编辑注释树",
   "showStorageLocation": "显示存储位置",
   "showStorageStats": "显示注释统计",

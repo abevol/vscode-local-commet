@@ -11,6 +11,7 @@
   "goToTagDeclaration": "Go to Tag Declaration",
   "refreshTree": "Refresh",
   "deleteCommentFromTree": "Delete Comment",
+  "clearFileComments": "Clear All File Comments",
   "editCommentFromTree": "Edit Comment From Tree",
   "showStorageLocation": "Show Storage Location",
   "showStorageStats": "Show Comment Statistics",

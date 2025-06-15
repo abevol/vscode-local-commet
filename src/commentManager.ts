@@ -279,6 +279,23 @@ export class CommentManager {
         vscode.window.showInformationMessage(`已删除第 ${commentToRemove.line + 1} 行的本地注释`);
     }
 
+    public async clearFileComments(uri: vscode.Uri): Promise<void> {
+        const filePath = uri.fsPath;
+        
+        if (!this.comments[filePath] || this.comments[filePath].length === 0) {
+            vscode.window.showWarningMessage('该文件没有本地注释');
+            return;
+        }
+
+        const commentCount = this.comments[filePath].length;
+        
+        // 删除该文件的所有注释记录
+        delete this.comments[filePath];
+
+        await this.saveComments();
+        vscode.window.showInformationMessage(`已清除该文件的所有本地注释，共删除 ${commentCount} 条注释`);
+    }
+
     /**
      * 获取指定文件中所有可以匹配到代码的注释
      * 

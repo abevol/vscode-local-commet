@@ -114,6 +114,12 @@
         "category": "Local Comment"
       },
       {
+        "command": "localComment.clearFileComments",
+        "title": "%clearFileComments%",
+        "icon": "$(clear-all)",
+        "category": "Local Comment"
+      },
+      {
         "command": "localComment.editCommentFromTree",
         "title": "%editCommentFromTree%",
         "icon": "$(edit)",
@@ -176,6 +182,10 @@
         {
           "command": "localComment.editCommentFromTree",
           "when": "false"
+        },
+        {
+          "command": "localComment.clearFileComments",
+          "when": "false"
         }
       ],
       "editor/context": [
@@ -222,6 +232,11 @@
           "command": "localComment.deleteCommentFromTree",
           "when": "view == localComments && viewItem == hidden-comment",
           "group": "inline"
+        },
+        {
+          "command": "localComment.clearFileComments",
+          "when": "view == localComments && viewItem == file",
+          "group": "context"
         }
       ]
     },

@@ -203,6 +203,25 @@ export function registerCommands(
         }
     });
 
+    const clearFileCommentsCommand = vscode.commands.registerCommand('localComment.clearFileComments', async (item) => {
+        if (item.contextValue === 'file' && item.filePath) {
+            // 显示确认对话框
+            const fileName = item.filePath.split(/[/\\]/).pop() || '';
+            const confirm = await vscode.window.showWarningMessage(
+                `确定要清除文件 "${fileName}" 的所有本地注释吗？此操作不可恢复！`,
+                '确定清除', '取消'
+            );
+            
+            if (confirm === '确定清除') {
+                const uri = vscode.Uri.file(item.filePath);
+                await commentManager.clearFileComments(uri);
+                tagManager.updateTags(commentManager.getAllComments());
+                commentProvider.refresh();
+                commentTreeProvider.refresh();
+            }
+        }
+    });
+
     const goToCommentCommand = vscode.commands.registerCommand('localComment.goToComment', async (filePath: string, line: number) => {
         try {
             const uri = vscode.Uri.file(filePath);
@@ -1012,6 +1031,7 @@ export function registerCommands(
         refreshCommentsCommand,
         refreshTreeCommand,
         deleteCommentFromTreeCommand,
+        clearFileCommentsCommand,
         goToCommentCommand,
         goToTagDeclarationCommand,
         removeCommentCommand,
