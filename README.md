@@ -202,6 +202,12 @@ npm run compile
 
 ### Version History
 
+## [1.0.9] - 2025-06-25 
+-  ✨  When using the markdown editor, it will display in split screen mode
+-  ✨  The import and export functions of user data have more flexible options (import and export through project path, import and export through annotation content)
+-  ✨  When using the markdown editor, the prompts for contextual content have increased.
+-  🔨  Fix some known issues
+
 ## [1.0.8] - 2025-06-14
 -  🔨  We used a stricter matching algorithm to fix the issue of mismatched comments and code positions caused by large code block modifications
 -  ✨  In the command line panel, some useless commands were removed
@@ -500,6 +506,12 @@ npm run compile
 ## 📝 更新日志
 
 ### 变更日志
+
+## [1.0.9] - 2025-06-25 
+- ✨ 使用markdown编辑器时，会分屏显示
+- ✨ 用户数据的导入和导出功能，选项更加自由(通过项目路径导入导出，通过注释内容的导入导出)
+- ✨ 在使用markdown编辑器时候，上下文内容的提示增多了。
+- 🔨 修复一些已知问题
 
 
 ## [1.0.8] - 2025-06-14
