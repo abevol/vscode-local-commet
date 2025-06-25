@@ -61,11 +61,23 @@ export async function showWebViewInput(
     const activeEditor = vscode.window.activeTextEditor;
     
     return new Promise((resolve) => {
+        // 智能分屏：限制最多两个列，在第一列和第二列之间切换
+        let viewColumn = vscode.ViewColumn.One;
+        if (activeEditor) {
+            if (activeEditor.viewColumn === vscode.ViewColumn.One) {
+                // 如果当前在第一列，在第二列打开编辑器
+                viewColumn = vscode.ViewColumn.Two;
+            } else {
+                // 如果当前在第二列或更高列，在第一列打开编辑器
+                viewColumn = vscode.ViewColumn.One;
+            }
+        }
+        
         // 创建WebView面板
         const panel = vscode.window.createWebviewPanel(
             'localCommentInput',
-            '本地注释输入',
-            vscode.ViewColumn.One,
+            '📝 本地注释编辑',
+            viewColumn,
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
@@ -122,6 +134,9 @@ function restoreFocus(editor: vscode.TextEditor | undefined) {
             viewColumn: editor.viewColumn,
             selection: editor.selection,
             preserveFocus: false
+        }).then(() => {
+            // 确保焦点真正回到编辑器
+            vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
         });
     }
 }
