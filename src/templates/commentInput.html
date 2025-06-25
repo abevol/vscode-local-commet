@@ -302,6 +302,31 @@
             const previewArea = document.getElementById('previewArea');
             let previewVisible = false;
             
+            // 状态管理：恢复之前保存的状态
+            const previousState = vscode.getState();
+            if (previousState) {
+                if (previousState.content && previousState.content !== textarea.value) {
+                    textarea.value = previousState.content;
+                }
+                if (previousState.previewVisible) {
+                    previewVisible = previousState.previewVisible;
+                    previewBtn.classList.add('active');
+                    previewArea.classList.add('show');
+                }
+                if (previousState.cursorPosition !== undefined) {
+                    textarea.setSelectionRange(previousState.cursorPosition, previousState.cursorPosition);
+                }
+            }
+            
+            // 保存状态的函数
+            function saveState() {
+                vscode.setState({
+                    content: textarea.value,
+                    previewVisible: previewVisible,
+                    cursorPosition: textarea.selectionStart
+                });
+            }
+            
             // 初始化marked
             let markedInitialized = false;
             
@@ -373,6 +398,9 @@
                     const content = textarea.value;
                     await updatePreview(content);
                 }
+                
+                // 保存预览状态
+                saveState();
             };
             
             // 标签自动补全
@@ -593,6 +621,9 @@
                 } else {
                     hideAutocomplete();
                 }
+                
+                // 保存输入状态
+                saveState();
             });
             
             // 处理键盘导航
@@ -642,9 +673,28 @@
                 }
             });
             
+            // 监听光标位置变化
+            textarea.addEventListener('selectionchange', function() {
+                saveState();
+            });
+            
+            // 监听失去焦点时保存状态
+            textarea.addEventListener('blur', function() {
+                saveState();
+            });
+            
+            // 初始化时如果有恢复的预览状态，更新预览内容
+            if (previewVisible && textarea.value) {
+                updatePreview(textarea.value);
+            }
+            
             // 设置焦点
             textarea.focus();
-            textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            if (previousState && previousState.cursorPosition !== undefined) {
+                textarea.setSelectionRange(previousState.cursorPosition, previousState.cursorPosition);
+            } else {
+                textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+            }
         })();
     </script>
 </body>

@@ -28,7 +28,7 @@ export async function showWebViewInput(
             vscode.ViewColumn.One,
             {
                 enableScripts: true,
-                retainContextWhenHidden: false,
+                retainContextWhenHidden: true,
                 localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'src')]
             }
         );
