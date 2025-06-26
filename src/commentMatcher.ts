@@ -46,15 +46,6 @@ export class CommentMatcher {
     }
     
     /**
-     * 智能匹配注释对应的行号（单个注释匹配，用于向后兼容）
-     */
-    public findMatchingLine(document: vscode.TextDocument, comment: LocalComment): number {
-        // 重置匹配状态（单个匹配时）
-        this.matchedLines.clear();
-        return this.findMatchingLineInternal(document, comment);
-    }
-    
-    /**
      * 内部匹配逻辑
      */
     private findMatchingLineInternal(document: vscode.TextDocument, comment: LocalComment): number {
@@ -230,6 +221,86 @@ export class CommentMatcher {
         complexity += Math.min(words.length / 10, 0.2);
         
         return Math.min(complexity, 1);
+    }
+
+    /**
+     * 模糊匹配单个注释 - 用于手动触发的模糊匹配
+     * 
+     * 该方法会在精确匹配失败后，使用模糊匹配算法尝试找到最相似的代码行。
+     * 与常规匹配不同，这个方法会搜索整个文档，并返回多个候选结果供用户选择。
+     * 
+     * @param document - VSCode文档对象
+     * @param comment - 要匹配的注释
+     * @param maxCandidates - 最大候选结果数量，默认5个
+     * @returns 返回匹配候选结果数组，按相似度降序排列
+     */
+    public fuzzyMatchComment(document: vscode.TextDocument, comment: LocalComment, maxCandidates: number = 5): Array<{
+        line: number;
+        content: string;
+        similarity: number;
+        confidence: 'high' | 'medium' | 'low';
+    }> {
+        const lineContent = comment.lineContent?.trim();
+        
+        // 如果没有保存的行内容，无法进行模糊匹配
+        if (!lineContent || lineContent.length === 0) {
+            return [];
+        }
+
+        const candidates: Array<{
+            line: number;
+            content: string;
+            similarity: number;
+            confidence: 'high' | 'medium' | 'low';
+        }> = [];
+
+        // 标准化目标内容
+        const normalizedTarget = this.normalizeLineContent(lineContent);
+        if (normalizedTarget.length === 0) {
+            return [];
+        }
+
+        // 遍历文档的每一行
+        for (let i = 0; i < document.lineCount; i++) {
+            const currentLine = document.lineAt(i).text.trim();
+            
+            // 跳过空行
+            if (currentLine.length === 0) {
+                continue;
+            }
+
+            // 计算相似度
+            const directSimilarity = this.calculateSimilarity(lineContent, currentLine);
+            const normalizedSimilarity = this.calculateSimilarity(normalizedTarget, this.normalizeLineContent(currentLine));
+            
+            // 使用两种相似度的最大值
+            const similarity = Math.max(directSimilarity, normalizedSimilarity);
+            
+            // 只考虑相似度超过阈值的行
+            if (similarity >= 0.3) {
+                // 确定置信度等级
+                let confidence: 'high' | 'medium' | 'low';
+                if (similarity >= 0.8) {
+                    confidence = 'high';
+                } else if (similarity >= 0.6) {
+                    confidence = 'medium';
+                } else {
+                    confidence = 'low';
+                }
+
+                candidates.push({
+                    line: i,
+                    content: currentLine,
+                    similarity: similarity,
+                    confidence: confidence
+                });
+            }
+        }
+
+        // 按相似度降序排序，并限制结果数量
+        return candidates
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, maxCandidates);
     }
 
     /**

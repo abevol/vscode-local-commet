@@ -18,5 +18,6 @@
   "manageProjects": "Manage Project Comments",
   "exportComments": "Export Comments Data",
   "importComments": "Import Comments Data",
+  "fuzzyMatchComment": "Fuzzy Match",
   "treeViewTitle": "Local Comments"
 } 

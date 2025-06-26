@@ -18,5 +18,6 @@
   "manageProjects": "管理项目注释",
   "exportComments": "导出注释数据",
   "importComments": "导入注释数据",
+  "fuzzyMatchComment": "模糊匹配",
   "treeViewTitle": "本地注释"
 } 

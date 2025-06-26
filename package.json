@@ -150,6 +150,12 @@
         "command": "localComment.importComments",
         "title": "%importComments%",
         "category": "Local Comment"
+      },
+      {
+        "command": "localComment.fuzzyMatchComment",
+        "title": "%fuzzyMatchComment%",
+        "icon": "$(search-fuzzy)",
+        "category": "Local Comment"
       }
     ],
     "views": {
@@ -185,6 +191,10 @@
         },
         {
           "command": "localComment.clearFileComments",
+          "when": "false"
+        },
+        {
+          "command": "localComment.fuzzyMatchComment",
           "when": "false"
         }
       ],
@@ -236,6 +246,11 @@
         {
           "command": "localComment.clearFileComments",
           "when": "view == localComments && viewItem == file",
+          "group": "context"
+        },
+        {
+          "command": "localComment.fuzzyMatchComment",
+          "when": "view == localComments && viewItem == hidden-comment",
           "group": "context"
         }
       ]

@@ -6,9 +6,9 @@ import { CommentMatcher } from './commentMatcher';
 
 export interface LocalComment {
     id: string;
-    line: number;
-    content: string;
-    timestamp: number;
+    line: number; // 当前行号
+    content: string; // 注释内容
+    timestamp: number; // 时间戳
     originalLine: number; // 原始行号，用于跟踪位置变化
     lineContent: string; // 该行的内容，用于智能定位
     isMatched?: boolean; // 标记注释是否匹配到代码

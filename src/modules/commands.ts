@@ -1047,6 +1047,129 @@ export function registerCommands(
         }
     });
 
+    // 模糊匹配命令
+    const fuzzyMatchCommentCommand = vscode.commands.registerCommand('localComment.fuzzyMatchComment', async (item) => {
+        if (!item || !item.comment || !item.filePath) {
+            vscode.window.showErrorMessage('无效的注释项');
+            return;
+        }
+
+        try {
+            // 确保文档已打开
+            const uri = vscode.Uri.file(item.filePath);
+            const document = await vscode.workspace.openTextDocument(uri);
+            
+            // 使用CommentMatcher进行模糊匹配
+            const commentMatcher = (commentManager as any).commentMatcher;
+            const candidates = commentMatcher.fuzzyMatchComment(document, item.comment, 8);
+            
+            if (candidates.length === 0) {
+                vscode.window.showInformationMessage('未找到相似的代码行，无法进行模糊匹配');
+                return;
+            }
+
+            // 定义候选项类型
+            interface FuzzyMatchQuickPickItem extends vscode.QuickPickItem {
+                candidate: {
+                    line: number;
+                    content: string;
+                    similarity: number;
+                    confidence: 'high' | 'medium' | 'low';
+                } | null;
+            }
+
+            // 构建候选项列表
+            const quickPickItems: FuzzyMatchQuickPickItem[] = candidates.map((candidate: {
+                line: number;
+                content: string;
+                similarity: number;
+                confidence: 'high' | 'medium' | 'low';
+            }) => {
+                const confidenceIcon = candidate.confidence === 'high' ? '🟢' : 
+                                     candidate.confidence === 'medium' ? '🟡' : '🔴';
+                const similarityPercent = Math.round(candidate.similarity * 100);
+                
+                return {
+                    label: `${confidenceIcon} 第${candidate.line + 1}行 (${similarityPercent}% 相似)`,
+                    description: candidate.content.length > 60 ? 
+                        candidate.content.substring(0, 60) + '...' : candidate.content,
+                    detail: `置信度: ${candidate.confidence} | 相似度: ${similarityPercent}%`,
+                    candidate: candidate
+                };
+            });
+
+            // 添加取消选项
+            quickPickItems.push({
+                label: '❌ 取消匹配',
+                description: '不进行匹配，保持注释隐藏状态',
+                detail: '',
+                candidate: null
+            });
+
+            // 显示选择对话框
+            const selected = await vscode.window.showQuickPick(quickPickItems, {
+                placeHolder: `为注释 "${item.comment.content}" 选择匹配的代码行`,
+                ignoreFocusOut: true,
+                matchOnDescription: true,
+                matchOnDetail: true
+            });
+
+            if (!selected || !selected.candidate) {
+                return; // 用户取消或选择了取消选项
+            }
+
+            // 确认用户的选择
+            const confirmMessage = `确定要将注释匹配到第${selected.candidate.line + 1}行吗？\n\n` +
+                                 `原始代码: ${item.comment.lineContent}\n` +
+                                 `匹配代码: ${selected.candidate.content}\n` +
+                                 `相似度: ${Math.round(selected.candidate.similarity * 100)}%`;
+
+            const confirm = await vscode.window.showInformationMessage(
+                confirmMessage,
+                { modal: true },
+                '确定匹配', '取消'
+            );
+
+            if (confirm !== '确定匹配') {
+                return;
+            }
+
+            // 更新注释位置和代码快照
+            const allComments = commentManager.getAllComments();
+            const fileComments = allComments[item.filePath];
+            
+            if (fileComments) {
+                const commentToUpdate = fileComments.find(c => c.id === item.comment.id);
+                if (commentToUpdate) {
+                    commentToUpdate.line = selected.candidate.line;
+                    commentToUpdate.lineContent = selected.candidate.content;
+                    commentToUpdate.isMatched = true;
+                    
+                    // 保存更改
+                    await (commentManager as any).saveComments();
+                    
+                    // 刷新界面
+                    commentProvider.refresh();
+                    commentTreeProvider.refresh();
+                    
+                    // 跳转到匹配的行
+                    const editor = await vscode.window.showTextDocument(document);
+                    const position = new vscode.Position(selected.candidate.line, 0);
+                    editor.selection = new vscode.Selection(position, position);
+                    editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                    
+                    vscode.window.showInformationMessage(
+                        `✅ 注释已成功匹配到第${selected.candidate.line + 1}行`
+                    );
+                }
+            }
+
+        } catch (error) {
+            console.error('模糊匹配失败:', error);
+            vscode.window.showErrorMessage(`模糊匹配失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    });
+
     // 返回所有注册的命令，以便在extension.ts中添加到subscriptions
     return [
         showStorageLocationCommand,
@@ -1070,6 +1193,7 @@ export function registerCommands(
         addMarkdownCommentCommand,
         convertSelectionToCommentCommand,
         exportCommentsCommand,
-        importCommentsCommand
+        importCommentsCommand,
+        fuzzyMatchCommentCommand
     ];
 } 
