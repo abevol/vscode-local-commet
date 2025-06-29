@@ -13,7 +13,7 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
         // 监听文件热度更新事件，只有在热度更新时才刷新排序
         if (this.fileHeatManager) {
             const heatUpdateDisposable = this.fileHeatManager.onDidUpdateHeat(() => {
-                this.refresh();
+                this.refresh(); // 热度更新时刷新注释树排序
             });
             this.disposables.push(heatUpdateDisposable);
         }
@@ -28,6 +28,11 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
     }
 
     refresh(): void {
+        this._onDidChangeTreeData.fire();
+    }
+
+    // 新增：只刷新内容，不重新排序的轻量级刷新
+    refreshContent(): void {
         this._onDidChangeTreeData.fire();
     }
 
@@ -75,16 +80,12 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
                     if (heatInfo && heatScore > 0) {
                         // 在tooltip中显示详细的热度信息
                         const lastAccessTime = new Date(heatInfo.lastAccessTime).toLocaleString();
-                        const lastEditTime = heatInfo.lastEditTime > 0 ? 
-                            new Date(heatInfo.lastEditTime).toLocaleString() : '未编辑';
                         const activeMinutes = Math.round(heatInfo.totalActiveTime / (60 * 1000));
                         
                         tooltip = `${filePath}\n\n📊 文件热度信息:\n` +
                                 `🔥 热度分数: ${heatScore.toFixed(1)}\n` +
                                 `👁️ 访问次数: ${heatInfo.accessCount}\n` +
-                                `✏️ 编辑次数: ${heatInfo.editCount}\n` +
                                 `🕒 最后访问: ${lastAccessTime}\n` +
-                                `📝 最后编辑: ${lastEditTime}\n` +
                                 `⏱️ 活跃时间: ${activeMinutes}分钟`;
                         
                         // 给当前正在编辑的文件添加特殊标识

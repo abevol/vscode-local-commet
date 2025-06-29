@@ -169,7 +169,6 @@ export class BookmarkManager {
         // 检查是否已存在该行的书签，如果存在则不重复添加
         const existingBookmark = this.bookmarks[filePath].find(b => b.line === line);
         if (existingBookmark) {
-            vscode.window.showInformationMessage(`第 ${line + 1} 行已存在书签`);
             return;
         }
 
@@ -197,8 +196,6 @@ export class BookmarkManager {
         this._invalidateCache();
         await this.saveBookmarks();
         this._onDidChangeBookmarks.fire();
-        
-        vscode.window.showInformationMessage(`已添加书签到第 ${line + 1} 行`);
     }
 
     /**
@@ -222,9 +219,7 @@ export class BookmarkManager {
             this._invalidateCache();
             await this.saveBookmarks();
             this._onDidChangeBookmarks.fire();
-            vscode.window.showInformationMessage(`已删除第 ${line + 1} 行的书签`);
         } else {
-            vscode.window.showInformationMessage(`第 ${line + 1} 行没有书签`);
         }
     }
 
@@ -352,58 +347,10 @@ export class BookmarkManager {
     }
 
     /**
-     * 处理文档变化，更新书签行号
+     * 处理文档变化 - 书签保持静态，不做任何更新
      */
     public handleDocumentChange(event: vscode.TextDocumentChangeEvent): void {
-        const filePath = event.document.uri.fsPath;
-        const fileBookmarks = this.bookmarks[filePath];
-        
-        if (!fileBookmarks || fileBookmarks.length === 0) {
-            return;
-        }
-
-        let hasChanges = false;
-        const document = event.document;
-
-        // 批量处理所有变化
-        for (const change of event.contentChanges) {
-            const startLine = change.range.start.line;
-            const endLine = change.range.end.line;
-            const linesAdded = change.text.split('\n').length - 1;
-            const linesRemoved = endLine - startLine;
-            const netChange = linesAdded - linesRemoved;
-
-            if (netChange !== 0) {
-                // 只更新受影响的书签行号
-                for (const bookmark of fileBookmarks) {
-                    if (bookmark.line > startLine) {
-                        bookmark.line += netChange;
-                        hasChanges = true;
-                    }
-                }
-            }
-        }
-
-        // 批量更新所有书签的行内容
-        for (const bookmark of fileBookmarks) {
-            if (bookmark.line >= 0 && bookmark.line < document.lineCount) {
-                try {
-                    const newLineContent = document.lineAt(bookmark.line).text.trim();
-                    if (bookmark.lineContent !== newLineContent) {
-                        bookmark.lineContent = newLineContent;
-                        hasChanges = true;
-                    }
-                } catch {
-                    // 忽略行号超出范围的错误
-                }
-            }
-        }
-
-        if (hasChanges) {
-            this._invalidateCache();
-            // 使用防抖保存
-            this._debouncedSave();
-        }
+        // 书签不需要任何更新操作，保持静态即可
     }
 
     /**
@@ -471,7 +418,7 @@ export class BookmarkManager {
     }
 
     /**
-     * 防抖保存书签
+     * 防抖保存书签 - 用于用户手动操作后的保存
      */
     private _debouncedSave(): void {
         if (this._saveTimeout) {
@@ -482,7 +429,7 @@ export class BookmarkManager {
             this.saveBookmarks();
             this._onDidChangeBookmarks.fire();
             this._saveTimeout = null;
-        }, 300); // 减少到300ms提高响应性
+        }, 100); // 用户手动操作后的保存延迟
     }
 
     /**

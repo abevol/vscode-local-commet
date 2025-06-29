@@ -24,6 +24,10 @@ let bookmarkDecorationProvider: BookmarkDecorationProvider;
 let lastKeyboardActivity = Date.now();
 const KEYBOARD_ACTIVITY_THRESHOLD = 1000; // 1秒内有键盘活动才视为手动编辑
 
+// 添加防抖定时器用于优化刷新频率
+let refreshTimer: NodeJS.Timeout | null = null;
+const REFRESH_DEBOUNCE_DELAY = 150; // 150ms防抖延迟
+
 export function activate(context: vscode.ExtensionContext) {
     console.log('本地注释插件已激活');
 
@@ -82,25 +86,28 @@ export function activate(context: vscode.ExtensionContext) {
     if (vscode.window.activeTextEditor) {
         // 如果已经有活动的编辑器，立即刷新
         commentProvider.refresh();
-        commentTreeProvider.refresh();
+        commentTreeProvider.refresh(); // 初始化时可以完整刷新
     }
 
     // 监听编辑器变化
     const onDidChangeActiveTextEditor = vscode.window.onDidChangeActiveTextEditor((editor) => {
         if (editor) {
-            // 编辑器切换时刷新注释显示，但不刷新注释树排序
+            // 编辑器切换时只刷新注释装饰器
             commentProvider.refresh();
-            // 注释树只刷新内容，不刷新排序（排序由热度更新事件触发）
-            commentTreeProvider.refresh();
+            // 注释树在编辑器切换时不需要刷新，因为内容没有变化
         }
     });
 
     // 监听文档打开
     const onDidOpenTextDocument = vscode.workspace.onDidOpenTextDocument(() => {
-        // 文档打开时刷新注释显示，但不刷新注释树排序
+        // 文档打开时只刷新注释装饰器
         commentProvider.refresh();
-        // 注释树只刷新内容，不刷新排序
-        commentTreeProvider.refresh();
+        // 注释树在文档打开时不需要刷新，因为内容没有变化
+    });
+
+    // 监听文档保存事件，执行智能匹配
+    const onDidSaveTextDocument = vscode.workspace.onDidSaveTextDocument((document) => {
+        commentManager.handleDocumentSave(document);
     });
 
     // 监听文档变化
@@ -112,12 +119,20 @@ export function activate(context: vscode.ExtensionContext) {
         
         // 传递键盘活动信息给commentManager
         commentManager.handleDocumentChange(event, hasRecentKeyboardActivity);
-        // 更新书签行号
-        bookmarkManager.handleDocumentChange(event);
+        // 书签保持静态，不需要处理文档变化
         tagManager.updateTags(commentManager.getAllComments());
-        commentProvider.refresh();
-        // 文档变化时只刷新注释内容，不刷新排序（排序由热度更新事件触发）
-        commentTreeProvider.refresh();
+        
+        // 使用防抖机制减少频繁刷新
+        if (refreshTimer) {
+            clearTimeout(refreshTimer);
+        }
+        
+        refreshTimer = setTimeout(() => {
+            // 只刷新注释装饰器，不刷新注释树
+            // 注释树会在注释管理器的智能更新完成后自动刷新
+            commentProvider.refresh();
+            refreshTimer = null;
+        }, REFRESH_DEBOUNCE_DELAY);
     });
 
     // 添加键盘事件监听
@@ -145,6 +160,7 @@ export function activate(context: vscode.ExtensionContext) {
         onDidChangeTextEditorSelection,
         onDidChangeTextEditorVisibleRanges,
         onDidOpenTextDocument,
+        onDidSaveTextDocument,
         commentProvider,
         commentTreeProvider,
         treeView,

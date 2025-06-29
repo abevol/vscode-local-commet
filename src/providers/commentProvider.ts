@@ -7,6 +7,7 @@ export class CommentProvider implements vscode.Disposable {
     private commentManager: CommentManager;
     private isVisible: boolean = true;
     private disposables: vscode.Disposable[] = [];
+    private updateTimer: NodeJS.Timeout | null = null; // 添加防抖定时器
 
     constructor(commentManager: CommentManager) {
         this.commentManager = commentManager;
@@ -24,10 +25,10 @@ export class CommentProvider implements vscode.Disposable {
         // 标签装饰器现在不再使用，但保留以避免错误
         this.tagDecorationType = vscode.window.createTextEditorDecorationType({});
 
-        // 监听编辑器变化
+        // 监听编辑器变化 - 优化：减少选择变化的更新频率
         this.disposables.push(
             vscode.window.onDidChangeActiveTextEditor(() => this.updateDecorations()),
-            vscode.window.onDidChangeTextEditorSelection(() => this.updateDecorations())
+            vscode.window.onDidChangeTextEditorSelection(() => this.debouncedUpdateDecorations())
         );
 
         this.updateDecorations();
@@ -174,6 +175,12 @@ export class CommentProvider implements vscode.Disposable {
     }
 
     public dispose(): void {
+        // 清理防抖定时器
+        if (this.updateTimer) {
+            clearTimeout(this.updateTimer);
+            this.updateTimer = null;
+        }
+        
         this.decorationType.dispose();
         this.tagDecorationType.dispose();
         this.disposables.forEach(d => d.dispose());
@@ -282,5 +289,17 @@ export class CommentProvider implements vscode.Disposable {
         }
 
         return undefined;
+    }
+
+    // 添加防抖更新方法
+    private debouncedUpdateDecorations(): void {
+        if (this.updateTimer) {
+            clearTimeout(this.updateTimer);
+        }
+        
+        this.updateTimer = setTimeout(() => {
+            this.updateDecorations();
+            this.updateTimer = null;
+        }, 100); // 100ms防抖延迟
     }
 }

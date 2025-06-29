@@ -4,6 +4,7 @@ import { BookmarkManager } from '../bookmarkManager';
 export class BookmarkDecorationProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
     private disposables: vscode.Disposable[] = [];
+    private updateTimer: NodeJS.Timeout | null = null; // 添加防抖定时器
 
     constructor(private bookmarkManager: BookmarkManager) {
         // 创建装饰类型 - 在行号区域显示书签图标，在滚动条上显示标记
@@ -22,24 +23,17 @@ export class BookmarkDecorationProvider implements vscode.Disposable {
 
         // 监听书签变化
         const bookmarkChangeDisposable = this.bookmarkManager.onDidChangeBookmarks(() => {
-            this.updateDecorations();
+            this.debouncedUpdateDecorations();
         });
         this.disposables.push(bookmarkChangeDisposable);
 
         // 监听编辑器变化
         const editorChangeDisposable = vscode.window.onDidChangeActiveTextEditor(() => {
-            this.updateDecorations();
+            this.updateDecorations(); // 编辑器切换时立即更新
         });
         this.disposables.push(editorChangeDisposable);
 
-        // 监听文档变化（虽然书签行号会自动更新，但装饰器需要刷新）
-        const documentChangeDisposable = vscode.workspace.onDidChangeTextDocument(() => {
-            // 延迟更新，避免频繁刷新
-            setTimeout(() => {
-                this.updateDecorations();
-            }, 100);
-        });
-        this.disposables.push(documentChangeDisposable);
+        // 书签保持静态显示，不需要监听文档变化
 
         // 初始化装饰
         this.updateDecorations();
@@ -125,7 +119,27 @@ export class BookmarkDecorationProvider implements vscode.Disposable {
         }
     }
 
+    /**
+     * 防抖更新装饰器 - 主要用于书签变化事件
+     */
+    private debouncedUpdateDecorations(): void {
+        if (this.updateTimer) {
+            clearTimeout(this.updateTimer);
+        }
+        
+        this.updateTimer = setTimeout(() => {
+            this.updateDecorations();
+            this.updateTimer = null;
+        }, 200); // 书签变化时的防抖延迟
+    }
+
     dispose(): void {
+        // 清理防抖定时器
+        if (this.updateTimer) {
+            clearTimeout(this.updateTimer);
+            this.updateTimer = null;
+        }
+        
         // 清理装饰类型
         this.decorationType.dispose();
         

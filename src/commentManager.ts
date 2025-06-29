@@ -22,9 +22,7 @@ export class CommentManager {
     private comments: FileComments = {};
     private storageFile: string;
     private context: vscode.ExtensionContext;
-    private updateTimer: NodeJS.Timeout | null = null; // 防抖定时器
-    private pendingUpdates: Set<string> = new Set(); // 待更新的文件路径
-    private _hasKeyboardActivity = false; // 记录键盘活动状态
+    private _hasKeyboardActivity = false; // 记录键盘活动状态，用于区分用户编辑和Git分支切换
     private commentMatcher: CommentMatcher; // 注释匹配器
 
     constructor(context: vscode.ExtensionContext) {
@@ -193,7 +191,6 @@ export class CommentManager {
         }
 
         await this.saveComments();
-        vscode.window.showInformationMessage(`已添加本地注释到第 ${line + 1} 行`);
     }
 
     public async editComment(uri: vscode.Uri, commentId: string, newContent: string): Promise<void> {
@@ -214,7 +211,6 @@ export class CommentManager {
         this.comments[filePath][commentIndex].timestamp = Date.now(); // 更新时间戳
 
         await this.saveComments();
-        vscode.window.showInformationMessage('注释已更新');
     }
 
     public getCommentById(uri: vscode.Uri, commentId: string): LocalComment | undefined {
@@ -250,7 +246,6 @@ export class CommentManager {
         }
 
         await this.saveComments();
-        vscode.window.showInformationMessage(`已删除第 ${line + 1} 行的本地注释`);
     }
 
     public async removeCommentById(uri: vscode.Uri, commentId: string): Promise<void> {
@@ -276,7 +271,6 @@ export class CommentManager {
         }
 
         await this.saveComments();
-        vscode.window.showInformationMessage(`已删除第 ${commentToRemove.line + 1} 行的本地注释`);
     }
 
     public async clearFileComments(uri: vscode.Uri): Promise<void> {
@@ -374,226 +368,158 @@ export class CommentManager {
             return;
         }
 
-        // 只有在有最近键盘活动时才处理直接编辑注释所在行的情况
-        // 这可以避免Git分支切换等非用户编辑操作触发代码快照更新
-        if (!hasRecentKeyboardActivity) {
-            // 如果没有键盘活动，可能是Git分支切换等操作导致的文件变化
-            console.log('⏭️ 未检测到键盘活动，可能是Git分支切换，跳过代码快照更新');
-            return;
-        }
-
-        // 检查是否有直接编辑注释所在行的情况
-        let hasDirectLineEdit = false;
-        let directUpdates = 0;
-        
-        // 检查是否有可能影响行号的操作（添加行或删除行）
-        let hasLineNumberChanges = false;
-        
-        // 先检查是否有影响行号的变更
-        for (const change of event.contentChanges) {
-            // 检查是否有添加或删除行的操作
-            const hasLineBreaks = change.text.includes('\n'); // 添加行的特征
-            const spanMultipleLines = change.range.end.line > change.range.start.line; // 跨多行的特征
-            
-            if (hasLineBreaks || spanMultipleLines) {
-                hasLineNumberChanges = true;
-                console.log(`⚠️ 检测到可能影响行号的操作: ${spanMultipleLines ? '删除多行' : '添加行'}`);
-                break;
-            }
-        }
-        
-        // 如果有可能影响行号的操作，直接走智能匹配流程，不立即更新内容快照
-        if (hasLineNumberChanges) {
-            console.log(`⚠️ 检测到行号变化，跳过直接更新内容快照，进入智能匹配流程`);
-            
-            // 将文件标记为需要智能更新
-            this.pendingUpdates.add(filePath);
-            
-            // 记录键盘活动状态
-            this._hasKeyboardActivity = hasRecentKeyboardActivity;
-            
-            // 立即执行智能更新（缩短延迟时间）
-            if (this.updateTimer) {
-                clearTimeout(this.updateTimer);
-            }
-            
-            this.updateTimer = setTimeout(async () => {
-                console.log('🧠 检测到行号变化，立即开始智能更新...');
-                await this.performSmartUpdates();
-                this.updateTimer = null;
-                
-                // 智能更新完成后再触发注释重新渲染
-                setTimeout(() => {
-                    vscode.commands.executeCommand('localComment.refreshComments');
-                }, 10);
-            }, 100); // 缩短延迟以更快响应行号变化
-            
-            return; // 提前返回，避免走直接更新的逻辑
-        }
-        
-        // 如果没有行号变化，正常处理直接编辑
-        for (const change of event.contentChanges) {
-            const startLine = change.range.start.line;
-            const endLine = change.range.end.line;
-            
-            // 检查变化范围内是否有注释
-            for (const comment of fileComments) {
-                if (comment.line >= startLine && comment.line <= endLine) {
-                    // 用户直接编辑了注释所在的行，立即更新代码快照
-                    try {
-                        const currentLineContent = event.document.lineAt(comment.line).text.trim();
-                        if (currentLineContent !== (comment.lineContent || '').trim()) {
-                            comment.lineContent = currentLineContent;
-                            directUpdates++;
-                            hasDirectLineEdit = true;
-                            console.log(`⚡ 检测到直接编辑注释行 ${comment.line + 1}，立即更新代码快照`);
-                        }
-                    } catch (error) {
-                        console.warn(`⚠️ 无法立即更新注释 ${comment.id}:`, error);
-                    }
-                }
-            }
-        }
-
-        // 如果有直接编辑，立即保存并刷新
-        if (hasDirectLineEdit) {
-            await this.saveComments();
-            console.log(`⚡ 立即更新完成，共更新 ${directUpdates} 个注释`);
-            
-            // 立即刷新注释显示
-            setTimeout(() => {
-                vscode.commands.executeCommand('localComment.refreshComments');
-            }, 10);
-            
-            // 如果只是直接编辑，不需要执行智能匹配
-            const needsSmartUpdate = fileComments.some(comment => {
-                // 检查是否有注释可能需要智能匹配（不在编辑范围内的注释）
-                return !event.contentChanges.some(change => 
-                    comment.line >= change.range.start.line && 
-                    comment.line <= change.range.end.line
-                );
-            });
-            
-            if (!needsSmartUpdate) {
-                console.log(`✅ 所有注释都通过直接编辑更新，跳过智能匹配`);
-                return;
-            }
-        }
-
-        // 将这个文件标记为需要智能更新（处理可能需要重新匹配的注释）
-        this.pendingUpdates.add(filePath);
-        
         // 记录键盘活动状态
         this._hasKeyboardActivity = hasRecentKeyboardActivity;
 
-        // 使用防抖机制：清除之前的定时器，设置新的定时器
-        if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
-        }
-
-        // 延迟300ms后执行智能更新（减少延迟，但仍然防抖）
-        this.updateTimer = setTimeout(async () => {
-            console.log('🧠 开始智能更新注释代码快照...');
-            await this.performSmartUpdates();
-            this.updateTimer = null;
+        // 如果没有键盘活动，可能是Git分支切换，需要立即执行智能匹配
+        if (!hasRecentKeyboardActivity) {
+            console.log('⚠️ 检测到Git分支切换，立即执行智能匹配');
+            await this.performSmartMatchingForFile(event.document);
             
-            // 智能更新完成后再触发注释重新渲染
+            // 刷新注释显示
             setTimeout(() => {
                 vscode.commands.executeCommand('localComment.refreshComments');
             }, 10);
-        }, 300);
-    }
-
-    /**
-     * 执行智能更新：只有当注释确实匹配到正确位置时，才更新代码快照
-     */
-    private async performSmartUpdates(): Promise<void> {
-        // 如果没有键盘活动，可能是Git分支切换，跳过智能更新
-        if (!this._hasKeyboardActivity) {
-            console.log('⏭️ 未检测到键盘活动，跳过智能更新');
-            this.pendingUpdates.clear();
             return;
         }
 
-        let totalUpdates = 0;
+        // 如果是用户编辑，只检查是否直接编辑了有注释的行
+        let hasDirectLineEdit = false;
+        let directUpdates = 0;
         
-        for (const filePath of this.pendingUpdates) {
-            const fileComments = this.comments[filePath];
-            if (!fileComments) continue;
-
-            // 获取当前文档
-            const document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
-            if (!document) continue;
-
-            let fileUpdates = 0;
+        for (const change of event.contentChanges) {
+            const changedLine = change.range.start.line;
             
-            // 使用批量匹配功能，确保不会有多个注释匹配到同一行
-            const matchResults = this.commentMatcher.batchMatchComments(document, fileComments);
-            
-            for (const comment of fileComments) {
-                const matchedLine = matchResults.get(comment.id) ?? -1;
-                
-                if (matchedLine !== -1) {
-                    // 注释找到了匹配位置，检查是否需要更新代码快照
-                    try {
-                        const currentLineContent = document.lineAt(matchedLine).text.trim();
-                        const storedLineContent = (comment.lineContent || '').trim();
-                        
-                        // 情况1：注释匹配到了原位置，但代码内容发生了变化（用户编辑）
-                        // 情况2：注释匹配到了新位置，需要更新行号和代码快照
-                        if (currentLineContent !== storedLineContent && currentLineContent.length > 0) {
-                            comment.lineContent = currentLineContent;
-                            comment.line = matchedLine; // 同时更新行号
-                            fileUpdates++;
-                            totalUpdates++;
-                        } else if (comment.line !== matchedLine) {
-                            // 只是位置变化，代码内容没变
-                            comment.line = matchedLine;
-                            fileUpdates++;
-                            totalUpdates++;
-                        }
-                    } catch (error) {
-                        console.warn(`⚠️ 无法智能更新注释 ${comment.id}:`, error);
+            // 查找这一行是否有注释
+            const commentOnLine = fileComments.find(comment => comment.line === changedLine);
+            if (commentOnLine) {
+                try {
+                    const currentLineContent = event.document.lineAt(changedLine).text.trim();
+                    if (currentLineContent !== (commentOnLine.lineContent || '').trim()) {
+                        commentOnLine.lineContent = currentLineContent;
+                        directUpdates++;
+                        hasDirectLineEdit = true;
+                        console.log(`⚡ 直接更新注释行 ${changedLine + 1} 的内容快照`);
                     }
-                } else {
-                    // 如果找不到匹配位置，检查是否是在原位置直接修改
-                    try {
-                        if (comment.line >= 0 && comment.line < document.lineCount) {
-                            const currentLineContent = document.lineAt(comment.line).text.trim();
-                            
-                            // 如果原位置有新内容（不是空行），且与存储的内容有明显差异
-                            // 可能是用户直接修改了注释所在的行，应该更新代码快照
-                            if (currentLineContent.length > 0 && 
-                                currentLineContent !== (comment.lineContent || '').trim()) {
-                                
-                                // 使用相似度检查，如果修改不是太大，认为是同一行的修改
-                                const similarity = this.commentMatcher.calculateSimilarity(currentLineContent, comment.lineContent || '');
-                                if (similarity > 0.4) { // 相似度超过40%认为是同一行的修改
-                                    comment.lineContent = currentLineContent;
-                                    fileUpdates++;
-                                    totalUpdates++;
-                                    console.log(`🔄 检测到原位置代码修改，更新注释 ${comment.id} 的代码快照`);
-                                }
-                            }
-                        }
-                    } catch (error) {
-                        console.warn(`⚠️ 无法检查原位置修改 ${comment.id}:`, error);
-                    }
+                } catch (error) {
+                    console.warn(`⚠️ 更新注释内容快照失败:`, error);
                 }
-            }
-
-            if (fileUpdates > 0) {
-                console.log(`✅ 文件 ${path.basename(filePath)} 更新了 ${fileUpdates} 个注释`);
             }
         }
 
-        // 清空待更新列表
-        this.pendingUpdates.clear();
-
-        // 如果有更新，保存到文件
-        if (totalUpdates > 0) {
+        // 如果有直接编辑，保存更改
+        if (hasDirectLineEdit) {
             await this.saveComments();
-            console.log(`✅ 智能更新完成，共更新 ${totalUpdates} 个注释`);
+            console.log(`✅ 直接更新完成，共更新 ${directUpdates} 个注释`);
+        }
+        
+        // 其他行的输入不做任何处理，不影响注释位置
+        // 位置匹配将在文件保存时进行
+    }
+
+    /**
+     * 处理文档保存事件，执行智能匹配更新注释位置
+     */
+    public async handleDocumentSave(document: vscode.TextDocument): Promise<void> {
+        const filePath = document.uri.fsPath;
+        const fileComments = this.comments[filePath];
+        
+        if (!fileComments || fileComments.length === 0) {
+            return;
+        }
+
+        console.log(`💾 文件保存，开始智能匹配更新注释位置: ${path.basename(filePath)}`);
+        
+        // 执行智能匹配
+        let fileUpdates = 0;
+        
+        // 使用批量匹配功能，确保不会有多个注释匹配到同一行
+        const matchResults = this.commentMatcher.batchMatchComments(document, fileComments);
+        
+        for (const comment of fileComments) {
+            const matchedLine = matchResults.get(comment.id) ?? -1;
+            
+            if (matchedLine !== -1) {
+                // 注释找到了匹配位置，检查是否需要更新
+                try {
+                    const currentLineContent = document.lineAt(matchedLine).text.trim();
+                    const storedLineContent = (comment.lineContent || '').trim();
+                    
+                    // 更新行号和代码快照
+                    if (currentLineContent !== storedLineContent && currentLineContent.length > 0) {
+                        comment.lineContent = currentLineContent;
+                        comment.line = matchedLine;
+                        fileUpdates++;
+                    } else if (comment.line !== matchedLine) {
+                        // 只是位置变化，代码内容没变
+                        comment.line = matchedLine;
+                        fileUpdates++;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ 无法更新注释 ${comment.id}:`, error);
+                }
+            }
+        }
+        
+        if (fileUpdates > 0) {
+            await this.saveComments();
+            console.log(`✅ 智能匹配完成，更新了 ${fileUpdates} 个注释`);
+        } else {
+            console.log(`✅ 智能匹配完成，注释位置无需更新`);
+        }
+        
+                // 更新完成后刷新注释树显示
+        setTimeout(() => {
+            vscode.commands.executeCommand('localComment.refreshComments');
+        }, 10);
+    }
+
+    /**
+     * 为单个文件执行智能匹配（用于Git分支切换等场景）
+     */
+    private async performSmartMatchingForFile(document: vscode.TextDocument): Promise<void> {
+        const filePath = document.uri.fsPath;
+        const fileComments = this.comments[filePath];
+        
+        if (!fileComments || fileComments.length === 0) {
+            return;
+        }
+
+        let fileUpdates = 0;
+        
+        // 使用批量匹配功能，确保不会有多个注释匹配到同一行
+        const matchResults = this.commentMatcher.batchMatchComments(document, fileComments);
+        
+        for (const comment of fileComments) {
+            const matchedLine = matchResults.get(comment.id) ?? -1;
+            
+            if (matchedLine !== -1) {
+                // 注释找到了匹配位置，检查是否需要更新
+                try {
+                    const currentLineContent = document.lineAt(matchedLine).text.trim();
+                    const storedLineContent = (comment.lineContent || '').trim();
+                    
+                    // 更新行号和代码快照
+                    if (currentLineContent !== storedLineContent && currentLineContent.length > 0) {
+                        comment.lineContent = currentLineContent;
+                        comment.line = matchedLine;
+                        fileUpdates++;
+                    } else if (comment.line !== matchedLine) {
+                        // 只是位置变化，代码内容没变
+                        comment.line = matchedLine;
+                        fileUpdates++;
+                    }
+                } catch (error) {
+                    console.warn(`⚠️ Git分支切换时无法更新注释 ${comment.id}:`, error);
+                }
+            }
+        }
+        
+        if (fileUpdates > 0) {
+            await this.saveComments();
+            console.log(`✅ Git分支切换智能匹配完成，更新了 ${fileUpdates} 个注释`);
+        } else {
+            console.log(`✅ Git分支切换智能匹配完成，注释位置无需更新`);
         }
     }
 
@@ -1053,4 +979,4 @@ export class CommentManager {
             };
         }
     }
-} 
+}

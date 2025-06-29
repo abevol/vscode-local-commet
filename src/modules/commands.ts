@@ -189,6 +189,7 @@ export function registerCommands(
 
     const refreshCommentsCommand = vscode.commands.registerCommand('localComment.refreshComments', () => {
         commentProvider.refresh();
+        commentTreeProvider.refreshContent(); // 智能更新完成后刷新注释树内容
     });
 
     const refreshTreeCommand = vscode.commands.registerCommand('localComment.refreshTree', () => {
@@ -335,8 +336,6 @@ export function registerCommands(
             editor.selection = new vscode.Selection(position, position);
             editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
             
-            vscode.window.showInformationMessage(`已跳转到标签 $${tagName} 的声明位置`);
-            
         } catch (error) {
             console.error('跳转到标签声明时发生错误:', error);
             vscode.window.showErrorMessage(`跳转失败: ${error}`);
@@ -401,7 +400,7 @@ export function registerCommands(
             tagManager.updateTags(commentManager.getAllComments());
             commentProvider.refresh();
             commentTreeProvider.refresh();
-            vscode.window.showInformationMessage('注释已成功删除');
+            // 删除注释无需提示，用户可以直接看到结果
         } catch (error) {
             console.error('从hover删除注释时发生错误:', error);
             vscode.window.showErrorMessage(`删除注释时发生错误: ${error}`);
@@ -571,7 +570,6 @@ export function registerCommands(
             tagManager.updateTags(commentManager.getAllComments());
             commentProvider.refresh();
             commentTreeProvider.refresh();
-            vscode.window.showInformationMessage('注释已成功更新');
         }
     });
 
@@ -732,7 +730,6 @@ export function registerCommands(
                     tagManager.updateTags(commentManager.getAllComments());
                     commentProvider.refresh();
                     commentTreeProvider.refresh();
-                    vscode.window.showInformationMessage('注释已更新');
                 }
             } else {
                 // 如果没有现有注释，添加新注释
@@ -759,7 +756,6 @@ export function registerCommands(
                     tagManager.updateTags(commentManager.getAllComments());
                     commentProvider.refresh();
                     commentTreeProvider.refresh();
-                    vscode.window.showInformationMessage('注释已添加');
                 }
             }
         } catch (error) {
@@ -1242,7 +1238,6 @@ export function registerCommands(
             const newLine = parseInt(newLineInput) - 1; // 转换为0基索引
             
             if (newLine === comment.line) {
-                vscode.window.showInformationMessage('行号没有变化');
                 return;
             }
 

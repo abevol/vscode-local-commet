@@ -4,8 +4,6 @@ export interface FileHeatInfo {
     filePath: string;
     accessCount: number; // 访问次数
     lastAccessTime: number; // 最后访问时间戳
-    editCount: number; // 编辑次数
-    lastEditTime: number; // 最后编辑时间戳
     totalActiveTime: number; // 总活跃时间（毫秒）
 }
 
@@ -21,8 +19,8 @@ export class FileHeatManager implements vscode.Disposable {
     private saveTimer: NodeJS.Timeout | null = null;
     private disposables: vscode.Disposable[] = [];
     
-    // 新增：延迟更新相关变量
-    private pendingUpdates: Map<string, {accessCount: number, editCount: number}> = new Map();
+    // 延迟更新相关变量
+    private pendingUpdates: Map<string, {accessCount: number}> = new Map();
     private onHeatUpdated: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
     public readonly onDidUpdateHeat: vscode.Event<void> = this.onHeatUpdated.event;
 
@@ -38,29 +36,23 @@ export class FileHeatManager implements vscode.Disposable {
             this.handleEditorChange(editor);
         });
 
-        // 监听文档变化（编辑活动）- 仅记录到pending，不立即更新热度
-        const onDidChangeTextDocument = vscode.workspace.onDidChangeTextDocument((event) => {
-            this.recordDocumentEdit(event.document.uri.fsPath);
-        });
-
         // 监听文档打开 - 仅记录到pending，不立即更新热度
         const onDidOpenTextDocument = vscode.workspace.onDidOpenTextDocument((document) => {
             this.recordFileAccess(document.uri.fsPath);
         });
 
-        // 监听文档保存 - 在保存时应用pending的更新
+        // 监听文档保存 - 在保存时应用pending的更新，但不触发排序更新
         const onDidSaveTextDocument = vscode.workspace.onDidSaveTextDocument((document) => {
-            this.applyPendingUpdates(document.uri.fsPath);
+            this.applyPendingUpdates(document.uri.fsPath, false); // 不触发排序更新
         });
 
-        // 监听文档关闭 - 在关闭时应用pending的更新
+        // 监听文档关闭 - 在关闭时应用pending的更新，并触发排序更新
         const onDidCloseTextDocument = vscode.workspace.onDidCloseTextDocument((document) => {
-            this.applyPendingUpdates(document.uri.fsPath);
+            this.applyPendingUpdates(document.uri.fsPath, true); // 触发排序更新
         });
 
         this.disposables.push(
             onDidChangeActiveTextEditor,
-            onDidChangeTextDocument,
             onDidOpenTextDocument,
             onDidSaveTextDocument,
             onDidCloseTextDocument
@@ -99,8 +91,6 @@ export class FileHeatManager implements vscode.Disposable {
                 filePath,
                 accessCount: 0,
                 lastAccessTime: now,
-                editCount: 0,
-                lastEditTime: 0,
                 totalActiveTime: 0
             };
         }
@@ -112,36 +102,15 @@ export class FileHeatManager implements vscode.Disposable {
         this.scheduleHeatDataSave();
     }
 
-    private handleDocumentEdit(filePath: string): void {
-        const now = Date.now();
-        
-        if (!this.heatData[filePath]) {
-            this.handleFileAccess(filePath); // 确保文件信息存在
-        }
-
-        const heatInfo = this.heatData[filePath];
-        heatInfo.editCount++;
-        heatInfo.lastEditTime = now;
-
-        this.scheduleHeatDataSave();
-    }
-
-    // 新增：记录文件访问到pending（不立即更新热度）
+    // 记录文件访问到pending（不立即更新热度）
     private recordFileAccess(filePath: string): void {
-        const existing = this.pendingUpdates.get(filePath) || { accessCount: 0, editCount: 0 };
+        const existing = this.pendingUpdates.get(filePath) || { accessCount: 0 };
         existing.accessCount++;
         this.pendingUpdates.set(filePath, existing);
     }
 
-    // 新增：记录文档编辑到pending（不立即更新热度）
-    private recordDocumentEdit(filePath: string): void {
-        const existing = this.pendingUpdates.get(filePath) || { accessCount: 0, editCount: 0 };
-        existing.editCount++;
-        this.pendingUpdates.set(filePath, existing);
-    }
-
-    // 新增：应用pending的更新到实际热度数据
-    private applyPendingUpdates(filePath: string): void {
+    // 应用pending的更新到实际热度数据
+    private applyPendingUpdates(filePath: string, triggerSortUpdate: boolean = false): void {
         const pending = this.pendingUpdates.get(filePath);
         if (!pending) {
             return;
@@ -155,8 +124,6 @@ export class FileHeatManager implements vscode.Disposable {
                 filePath,
                 accessCount: 0,
                 lastAccessTime: now,
-                editCount: 0,
-                lastEditTime: 0,
                 totalActiveTime: 0
             };
         }
@@ -168,19 +135,18 @@ export class FileHeatManager implements vscode.Disposable {
             heatInfo.accessCount += pending.accessCount;
             heatInfo.lastAccessTime = now;
         }
-        
-        // 应用编辑次数更新
-        if (pending.editCount > 0) {
-            heatInfo.editCount += pending.editCount;
-            heatInfo.lastEditTime = now;
-        }
 
         // 清除pending更新
         this.pendingUpdates.delete(filePath);
         
-        // 保存数据并触发热度更新事件
+        // 保存数据
         this.scheduleHeatDataSave();
-        this.onHeatUpdated.fire();
+        
+        // 只有在明确需要触发排序更新时才触发热度更新事件
+        if (triggerSortUpdate) {
+            console.log(`🔥 文件 ${filePath} 关闭，触发热度排序更新`);
+            this.onHeatUpdated.fire();
+        }
     }
 
     private updateActiveTime(filePath: string, activeTime: number): void {
@@ -234,7 +200,7 @@ export class FileHeatManager implements vscode.Disposable {
 
     /**
      * 计算文件热度分数
-     * 热度分数综合考虑：访问次数、编辑次数、最近访问时间、总活跃时间
+     * 热度分数综合考虑：访问次数、最近访问时间、总活跃时间
      */
     public calculateHeatScore(filePath: string): number {
         const heatInfo = this.heatData[filePath];
@@ -249,20 +215,14 @@ export class FileHeatManager implements vscode.Disposable {
         const timeSinceLastAccess = now - heatInfo.lastAccessTime;
         const timeWeight = Math.max(0, 1 - (timeSinceLastAccess / (7 * dayMs))); // 7天内的访问有权重
         
-        // 编辑权重：最近编辑的文件权重更高
-        const timeSinceLastEdit = heatInfo.lastEditTime > 0 ? now - heatInfo.lastEditTime : Number.MAX_SAFE_INTEGER;
-        const editTimeWeight = Math.max(0, 1 - (timeSinceLastEdit / (3 * dayMs))); // 3天内的编辑有权重
-        
         // 活跃时间权重（转换为分钟）
         const activeTimeWeight = Math.min(heatInfo.totalActiveTime / (60 * 1000), 120) / 120; // 最大120分钟
         
-        // 综合计算热度分数
+        // 简化的热度分数计算
         const score = 
-            heatInfo.accessCount * 1 +           // 访问次数基础分
-            heatInfo.editCount * 3 +             // 编辑次数更重要
-            timeWeight * 10 +                    // 最近访问权重
-            editTimeWeight * 15 +                // 最近编辑权重
-            activeTimeWeight * 5;                // 活跃时间权重
+            heatInfo.accessCount * 2 +           // 访问次数基础分（提高权重）
+            timeWeight * 15 +                    // 最近访问权重
+            activeTimeWeight * 8;                // 活跃时间权重
             
         return score;
     }
