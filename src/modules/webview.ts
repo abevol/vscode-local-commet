@@ -154,6 +154,8 @@ function getWebviewContent(
         selectedText?: string;
         contextLines?: string[]; // 前后5行的代码内容
         contextStartLine?: number; // 上下文开始的行号
+        fileNotFound?: boolean; // 文件是否不存在
+        filePath?: string; // 文件路径
     },
     markedJsUri: string = '',
     tagSuggestions: string = ''
@@ -173,6 +175,20 @@ function getWebviewContent(
     if (contextInfo) {
         contextHtml = '<div class="context-info">';
         contextHtml += '<div class="context-title">📍 代码上下文</div>';
+        
+        // 如果文件不存在，显示特殊提示
+        if (contextInfo.fileNotFound) {
+            contextHtml += `<div class="context-item file-not-found">
+                <span class="context-label">⚠️ 文件状态:</span>
+                <span class="context-value">原文件已删除或移动</span>
+            </div>`;
+            if (contextInfo.filePath) {
+                contextHtml += `<div class="context-item">
+                    <span class="context-label">原路径:</span>
+                    <span class="context-value">${escapeHtml(contextInfo.filePath)}</span>
+                </div>`;
+            }
+        }
         
         if (contextInfo.fileName) {
             contextHtml += `<div class="context-item">
@@ -237,8 +253,9 @@ function getWebviewContent(
             </div>`;
         } else if (contextInfo.originalLineContent && !contextInfo.contextLines) {
             // 注释无法匹配到代码时，只显示注释保存的代码快照
+            const snapshotLabel = contextInfo.fileNotFound ? '代码快照 (原文件已删除)' : '注释快照';
             contextHtml += `<div class="context-item">
-                <span class="context-label">注释快照:</span>
+                <span class="context-label">${snapshotLabel}:</span>
                 <div class="context-value">
                     <div class="code-preview original-code">${escapeHtml(contextInfo.originalLineContent)}</div>
                 </div>
