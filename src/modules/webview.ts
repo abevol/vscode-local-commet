@@ -81,13 +81,23 @@ export async function showWebViewInput(
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [vscode.Uri.joinPath(context.extensionUri, 'src')]
+                localResourceRoots: [
+                    vscode.Uri.joinPath(context.extensionUri, 'src'),
+                    vscode.Uri.joinPath(context.extensionUri, 'src', 'templates'),
+                    vscode.Uri.joinPath(context.extensionUri, 'src', 'lib')
+                ]
             }
         );
 
-        // 获取marked.js的本地路径
+        // 获取资源文件的本地路径
         const markedJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'marked.min.js');
         const markedJsUri = panel.webview.asWebviewUri(markedJsPath);
+        
+        const cssPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'commentInput.css');
+        const cssUri = panel.webview.asWebviewUri(cssPath);
+        
+        const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'commentInput.js');
+        const jsUri = panel.webview.asWebviewUri(jsPath);
 
         // 获取标签建议
         const commentManager = new CommentManager(context);
@@ -96,7 +106,7 @@ export async function showWebViewInput(
         const tagSuggestions = tagManager.getAvailableTagNames().map(tag => `@${tag}`).join(',');
 
         // HTML内容
-        panel.webview.html = getWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), tagSuggestions);
+        panel.webview.html = getWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), tagSuggestions);
 
         // 处理WebView消息
         panel.webview.onDidReceiveMessage(
@@ -158,6 +168,8 @@ function getWebviewContent(
         filePath?: string; // 文件路径
     },
     markedJsUri: string = '',
+    cssUri: string = '',
+    jsUri: string = '',
     tagSuggestions: string = ''
 ): string {
     // HTML转义函数
@@ -272,6 +284,8 @@ function getWebviewContent(
         escapedPlaceholder: escapeHtml(placeholder),
         escapedContent: escapeHtml(existingContent || ''),
         markedJsUri: markedJsUri || '',
+        cssUri: cssUri || '',
+        jsUri: jsUri || '',
         tagSuggestions: tagSuggestions
     };
 
