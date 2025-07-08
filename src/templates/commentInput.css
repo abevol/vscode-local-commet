@@ -234,34 +234,7 @@ button {
     font-size: 12px;
     margin-left: 8px;
 }
-.preview-btn {
-    background-color: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
-    margin-bottom: 10px;
-}
-.preview-btn:hover {
-    background-color: var(--vscode-button-secondaryHoverBackground);
-}
-.preview-btn.active {
-    background-color: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
-}
-.preview-area {
-    display: none;
-    border: 1px solid var(--vscode-input-border);
-    border-radius: 4px;
-    padding: 12px;
-    margin-top: 10px;
-    background-color: var(--vscode-input-background);
-    color: var(--vscode-input-foreground);
-    min-height: 100px;
-    max-height: 500px;
-    overflow-y: auto;
-}
-.preview-area.show {
-    display: block;
-    margin-bottom: 10px;
-}
+/* 旧的预览区域样式已移动到tab布局中 */
 /* Markdown 预览样式 */
 .preview-area h1,
 .preview-area h2,
@@ -321,4 +294,73 @@ button {
 }
 .preview-area th {
     background-color: var(--vscode-editor-inactiveSelectionBackground);
+}
+
+/* Tab 切换样式 */
+.context-tabs {
+    margin-top: 10px;
+}
+
+.tab-header {
+    display: flex;
+    border-bottom: 1px solid var(--vscode-panel-border);
+    margin-bottom: 12px;
+}
+
+.tab-btn {
+    background: none;
+    border: none;
+    padding: 8px 16px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--vscode-descriptionForeground);
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s ease;
+    font-family: var(--vscode-editor-font-family);
+    position: relative;
+}
+
+.tab-btn:hover {
+    background-color: var(--vscode-list-hoverBackground);
+    color: var(--vscode-foreground);
+}
+
+.tab-btn.active {
+    color: var(--vscode-foreground);
+    border-bottom-color: var(--vscode-textLink-foreground);
+    font-weight: bold;
+}
+
+.tab-content {
+    display: none;
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* 更新预览区域样式，适配tab布局 */
+#previewArea {
+    border: 1px solid var(--vscode-input-border);
+    border-radius: 4px;
+    padding: 12px;
+    background-color: var(--vscode-input-background);
+    color: var(--vscode-input-foreground);
+    min-height: 100px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.5;
 } 

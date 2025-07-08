@@ -795,9 +795,7 @@ export function registerCommands(
                 }
             } else {
                 // 如果没有现有注释，添加新注释
-                // 获取代码上下文（前后5行）
-                const codeContext = await getCodeContext(editor.document.uri, line);
-                
+                // 优化：先显示编辑器，异步加载代码上下文
                 const content = await showWebViewInput(
                     context,
                     '添加多行本地注释',
@@ -807,8 +805,7 @@ export function registerCommands(
                         fileName,
                         lineNumber: line,
                         lineContent,
-                        contextLines: codeContext.contextLines,
-                        contextStartLine: codeContext.contextStartLine
+                        // 暂时不包含上下文，让webview先显示
                     }
                 );
                 
