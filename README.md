@@ -211,6 +211,11 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
+## [1.1.1] -2025-07-08
+- ✨ Markdonw optimize the preview position using the tab box style
+- 🔨 fixed the issue where the auto-completion position was incorrect and not displayed when using the @ tag when there were too many lines in markdown
+- 🔨 some other questions
+
 ## [1.1.0] - 2025-06-29 
 - ✨ Added bookmark functionality, use shortcut Ctrl+Alt+K to add bookmarks, use Ctrl+Alt+J to jump to next bookmark position
 - ✨ for unmatched code, the initial snapshot content can also be seen in the markdown editor
@@ -537,6 +542,11 @@ emitter.on('data', handler);  // 本地注释: 监听@EventEmitter的data事件
 ## 📝 更新日志
 
 ### 变更日志
+
+## [1.1.1] - 2025-07-08 
+- ✨ Markdonw预览的位置进行优化，使用tab选框的样式
+- 🔨 修复当markdown行数过多的时候，使用@标签的时候自动补全的位置出现错误而不显示的问题
+- 🔨 其他的一些问题
 
 ## [1.1.0] - 2025-06-29 
 - ✨ 加入书签功能，使用快捷键ctrl+alt+k可以添加书签，使用ctrl+alt+j可以跳转到下一个书签位置
