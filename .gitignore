@@ -15,6 +15,7 @@ build/
 !src/lib/marked.min.js
 !webpack.config.js
 !gulpfile.js
+!src/templates/**
 
 # TypeScript 缓存
 *.tsbuildinfo

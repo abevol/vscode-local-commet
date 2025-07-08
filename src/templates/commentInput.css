@@ -204,12 +204,15 @@ button {
     background-color: var(--vscode-dropdown-background);
     border: 1px solid var(--vscode-dropdown-border);
     border-radius: 4px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     max-height: 200px;
     overflow-y: auto;
-    z-index: 1000;
+    z-index: 9999;
     display: none;
     min-width: 150px;
+    max-width: 300px;
+    /* 确保下拉框在所有情况下都可见 */
+    pointer-events: auto;
 }
 .autocomplete-item {
     padding: 8px 12px;
