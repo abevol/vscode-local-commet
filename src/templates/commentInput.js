@@ -534,6 +534,9 @@
             if (e.ctrlKey && e.key === 'Enter') {
                 e.preventDefault();
                 window.save();
+            } else if (e.ctrlKey && e.key === 's') {
+                e.preventDefault();
+                window.saveAndContinue();
             } else if (e.key === 'Escape') {
                 e.preventDefault();
                 window.cancel();
@@ -571,4 +574,12 @@
     } else {
         textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     }
+    
+    // 暴露函数给全局作用域
+    window.saveAndContinue = function() {
+        vscode.postMessage({
+            command: 'saveAndContinue',
+            content: textarea.value
+        });
+    };
 })(); 

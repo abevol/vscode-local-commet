@@ -17,6 +17,36 @@ export function registerCommands(
     commentTreeProvider: CommentTreeProvider,
     bookmarkManager?: BookmarkManager
 ) {
+    // 辅助函数：创建保存并继续的回调函数
+    function createSaveAndContinueCallback(
+        operation: 'edit' | 'add',
+        uri: vscode.Uri,
+        commentId: string,
+        line: number,
+        originalContent: string
+    ) {
+        return (savedContent: string) => {
+            // 对于添加操作，检查内容是否为空
+            if (operation === 'add' && (!savedContent || savedContent.trim() === '')) {
+                return;
+            }
+            
+            // 对于编辑操作，检查内容是否发生变化
+            if (operation === 'edit' && savedContent === originalContent) {
+                return;
+            }
+            
+            const promise = operation === 'edit' 
+                ? commentManager.editComment(uri, commentId, savedContent)
+                : commentManager.addComment(uri, line, savedContent);
+            
+            promise.then(() => {
+                tagManager.updateTags(commentManager.getAllComments());
+                commentProvider.refresh();
+                commentTreeProvider.refresh();
+            });
+        };
+    }
     const showStorageLocationCommand = vscode.commands.registerCommand('localComment.showStorageLocation', () => {
         const projectInfo = commentManager.getProjectInfo();
         const storageFile = commentManager.getStorageFilePath();
@@ -474,9 +504,12 @@ export function registerCommands(
                 '修改注释内容',
                 '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
                 comment.content,
-                contextInfo
+                contextInfo,
+                '',
+                createSaveAndContinueCallback('edit', documentUri, commentId, comment.line, comment.content)
             );
 
+            // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
             if (newContent !== undefined && newContent !== comment.content) {
                 await commentManager.editComment(documentUri, commentId, newContent);
                 tagManager.updateTags(commentManager.getAllComments());
@@ -622,9 +655,12 @@ export function registerCommands(
                 '编辑本地注释',
                 '请修改注释内容...',
                 comment.content,
-                contextInfo
+                contextInfo,
+                '',
+                createSaveAndContinueCallback('edit', uri, comment.id, comment.line, comment.content)
             );
             
+            // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
             if (newContent !== undefined && newContent.trim() !== '') {
                 await commentManager.editComment(uri, comment.id, newContent);
                 // 刷新标签和界面
@@ -691,9 +727,12 @@ export function registerCommands(
                         '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签' : 
                         '原文件已删除，但您仍可以编辑注释内容。支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
                     item.comment.content,
-                    contextInfo
+                    contextInfo,
+                    '',
+                    createSaveAndContinueCallback('edit', uri, item.comment.id, item.comment.line, item.comment.content)
                 );
 
+                // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
                 if (newContent !== undefined && newContent !== item.comment.content) {
                     await commentManager.editComment(uri, item.comment.id, newContent);
                     tagManager.updateTags(commentManager.getAllComments());
@@ -783,9 +822,12 @@ export function registerCommands(
                     '编辑多行本地注释',
                     '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
                     existingComment.content,
-                    contextInfo
+                    contextInfo,
+                    '',
+                    createSaveAndContinueCallback('edit', editor.document.uri, existingComment.id, existingComment.line, existingComment.content)
                 );
                 
+                // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
                 if (newContent !== undefined && newContent !== existingComment.content) {
                     await commentManager.editComment(editor.document.uri, existingComment.id, newContent);
                     // 刷新标签和界面
@@ -806,9 +848,12 @@ export function registerCommands(
                         lineNumber: line,
                         lineContent,
                         // 暂时不包含上下文，让webview先显示
-                    }
+                    },
+                    '',
+                    createSaveAndContinueCallback('add', editor.document.uri, '', line, '')
                 );
                 
+                // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
                 if (content !== undefined && content.trim() !== '') {
                     await commentManager.addComment(editor.document.uri, line, content);
                     // 刷新标签和界面

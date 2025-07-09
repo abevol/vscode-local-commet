@@ -58,7 +58,8 @@ export async function showWebViewInput(
         contextLines?: string[]; // 前后5行的代码内容
         contextStartLine?: number; // 上下文开始的行号
     },
-    markedJsUri: string = ''
+    markedJsUri: string = '',
+    onSaveAndContinue?: (content: string) => void
 ): Promise<string | undefined> {
     // 保存当前活动编辑器的引用，以便稍后恢复焦点
     const activeEditor = vscode.window.activeTextEditor;
@@ -162,6 +163,14 @@ export async function showWebViewInput(
                         panel.dispose();
                         // WebView关闭后恢复编辑器焦点
                         setTimeout(() => restoreFocus(activeEditor), 100);
+                        break;
+                    case 'saveAndContinue':
+                        // 保存内容但不关闭编辑器
+                        if (onSaveAndContinue) {
+                            onSaveAndContinue(message.content);
+                        }
+                        // 显示保存成功提示
+                        vscode.window.showInformationMessage('保存成功');
                         break;
                     case 'cancel':
                         resolve(undefined);

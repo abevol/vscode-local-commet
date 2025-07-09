@@ -196,6 +196,14 @@ button {
 .cancel-btn:hover {
     background-color: var(--vscode-button-secondaryHoverBackground);
 }
+.save-continue-btn {
+    background-color: var(--vscode-button-secondaryBackground);
+    color: var(--vscode-button-secondaryForeground);
+    border: 1px solid var(--vscode-button-secondaryBorder);
+}
+.save-continue-btn:hover {
+    background-color: var(--vscode-button-secondaryHoverBackground);
+}
 .autocomplete {
     position: relative;
 }
