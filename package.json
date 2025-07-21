@@ -410,6 +410,7 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "build":"npx @vscode/vsce package",
+    "ls":"npx @vscode/vsce ls --tree", 
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },

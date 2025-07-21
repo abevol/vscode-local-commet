@@ -6,9 +6,9 @@
 # 开发和构建文件
 .vscode/**
 .vscode-test/**
-src/**
 !src/templates/**
 !src/lib/**
+!src/resources/**
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { CommentManager, LocalComment } from '../commentManager';
+import { createDataUri } from '../utils';
 
 export class CommentProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
@@ -8,12 +9,19 @@ export class CommentProvider implements vscode.Disposable {
     private isVisible: boolean = true;
     private disposables: vscode.Disposable[] = [];
     private updateTimer: NodeJS.Timeout | null = null; // 添加防抖定时器
+    
+    // 预加载的图标URIs
+    private commentIconUri: string | null = null;
+    private editIconUri: string | null = null;
+    private deleteIconUri: string | null = null;
+    private markdownIconUri: string | null = null;
 
     constructor(commentManager: CommentManager) {
         this.commentManager = commentManager;
         
-        // 创建装饰类型用于显示注释
+        // 初始创建装饰类型（先不设置图标）
         this.decorationType = vscode.window.createTextEditorDecorationType({
+            // 行内显示注释内容（不包含图标）
             after: {
                 color: '#888888',
                 fontStyle: 'italic',
@@ -31,7 +39,54 @@ export class CommentProvider implements vscode.Disposable {
             vscode.window.onDidChangeTextEditorSelection(() => this.debouncedUpdateDecorations())
         );
 
+        // 异步加载图标，加载完成后重新创建装饰类型
+        this.loadAllIcons().then(() => {
+            this.recreateDecorationType();
+            this.updateDecorations();
+        });
+
         this.updateDecorations();
+    }
+
+    // 异步加载所有图标
+    private async loadAllIcons(): Promise<void> {
+        try {
+            const context = this.commentManager.getContext();
+            const [commentIcon, editIcon, deleteIcon, markdownIcon] = await Promise.all([
+                createDataUri(context, 'src/resources/pin.svg'), // 使用markdown图标作为注释图标
+                createDataUri(context, 'src/resources/edit.svg'),
+                createDataUri(context, 'src/resources/delete.svg'),
+                createDataUri(context, 'src/resources/markdown.svg')
+            ]);
+
+            this.commentIconUri = commentIcon;
+            this.editIconUri = editIcon;
+            this.deleteIconUri = deleteIcon;
+            this.markdownIconUri = markdownIcon;
+        } catch (error) {
+            console.error('加载图标失败:', error);
+        }
+    }
+
+    // 重新创建装饰类型（加载图标后）
+    private recreateDecorationType(): void {
+        // 先释放旧的装饰类型
+        this.decorationType.dispose();
+        
+        // 创建新的装饰类型，包含图标
+        this.decorationType = vscode.window.createTextEditorDecorationType({
+            // 在行号区域显示注释图标
+            gutterIconPath: this.commentIconUri ? vscode.Uri.parse(this.commentIconUri) : undefined,
+            gutterIconSize: 'contain', // 使图标适应行号区域大小，更小更协调
+            
+            // 行内显示注释内容（不包含图标）
+            after: {
+                color: '#888888',
+                fontStyle: 'italic',
+                margin: '0 0 0 1em'
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+        });
     }
 
     public refresh(): void {
@@ -85,15 +140,15 @@ export class CommentProvider implements vscode.Disposable {
         const tags: vscode.DecorationOptions[] = [];
         const lineLength = line.text.length;
         
-        // 🎯 精确模式：所有注释都使用普通样式，不进行特殊高亮
+        // 使用优雅的Unicode图标系统 - 可配置和现代化
         const decoration: vscode.DecorationOptions = {
             range: new vscode.Range(comment.line, lineLength, comment.line, lineLength),
             renderOptions: {
                 after: {
-                    contentText: ` 💬 ${comment.content}`,
-                    color: '#888888',
+                    contentText: ` ${comment.content}`, // 移除Unicode图标，图标现在显示在行号区域
+                    color: '#6B7283', // 更现代的灰蓝色
                     fontStyle: 'italic',
-                    margin: '0 0 0 1em'
+                    margin: '0 0 0 0.8em' // 微调边距使其更紧凑
                 }
             }
         };
@@ -196,7 +251,7 @@ export class CommentProvider implements vscode.Disposable {
             .replace(/\\'/g, "'");      // \' -> '
     }
 
-    public provideHover(document: vscode.TextDocument, position: vscode.Position): vscode.ProviderResult<vscode.Hover> {
+    public async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | undefined> {
         if (!this.isVisible) {
             return;
         }
@@ -206,15 +261,20 @@ export class CommentProvider implements vscode.Disposable {
         const comment = comments.find(c => c.line === line);
 
         if (comment) {
+            // 使用预加载的图标URIs，如果没有加载完成则跳过图标显示
+            const editIconUri = this.editIconUri || '';
+            const deleteIconUri = this.deleteIconUri || '';
+            const markDownIconUri = this.markdownIconUri || '';
+
             const markdownContent = new vscode.MarkdownString();
             markdownContent.isTrusted = true;
             markdownContent.supportHtml = true;
             
-            // 🔥 处理用户输入的转义字符
+            // 处理用户输入的转义字符
             const processedContent = this.processMarkdownContent(comment.content);
             
             // 构建Markdown内容
-            markdownContent.appendMarkdown(`**💬 本地注释**\n\n`);
+            markdownContent.appendMarkdown(`**本地注释**\n\n`);
             
             // 将注释内容中的@标签转换为可点击的链接
             const segments = this.parseCommentIntoSegments(processedContent);
@@ -251,22 +311,22 @@ export class CommentProvider implements vscode.Disposable {
                     }
                 }
                 
-                markdownContent.appendMarkdown(`**🏷️ 标签信息**\n\n`);
+                markdownContent.appendMarkdown(`**标签信息**\n\n`);
                 
                 // 处理声明标签
                 for (const tagText of declarationTags) {
-                    markdownContent.appendMarkdown(`🏷️ **声明**: \`${tagText}\`\n\n`);
+                    markdownContent.appendMarkdown(`️**声明**: \`${tagText}\`\n\n`);
                 }
                 
                 // 处理引用标签
                 for (const tagText of referenceTags) {
                     const tagName = tagText.substring(1);
-                    markdownContent.appendMarkdown(`🔗 **引用**: \`${tagText}\` - [跳转到声明](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})\n\n`);
+                    markdownContent.appendMarkdown(`**引用**: \`${tagText}\` - [跳转到声明](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})\n\n`);
                 }
             }
             
             markdownContent.appendMarkdown(`---\n`);
-            markdownContent.appendMarkdown(`📅 *${new Date(comment.timestamp).toLocaleString()}*\n\n`);
+            markdownContent.appendMarkdown(`*${new Date(comment.timestamp).toLocaleString()}*\n\n`);
             
             // 添加操作按钮
             const editArgs = JSON.stringify({
@@ -281,9 +341,13 @@ export class CommentProvider implements vscode.Disposable {
                 line: comment.line
             });
 
-            markdownContent.appendMarkdown(`[✏️ 编辑](command:localComment.quickEditCommentFromHover?${encodeURIComponent(editArgs)} "快速编辑注释") | `);
-            markdownContent.appendMarkdown(`[📝 Markdown编辑](command:localComment.editCommentFromHover?${encodeURIComponent(editArgs)} "多行编辑注释") | `);
-            markdownContent.appendMarkdown(`[🗑️ 删除](command:localComment.removeCommentFromHover?${encodeURIComponent(removeArgs)} "删除注释")`);
+            const editIcon = `<img src="${editIconUri}" width="16" height="16" alt="编辑" style="vertical-align: middle; " />`;
+            const deleteIcon = `<img src="${deleteIconUri}" width="16" height="16" alt="删除" style="vertical-align: middle;" />`;
+            const markDownIcon = `<img src="${markDownIconUri}" width="16" height="16" alt="删除" style="vertical-align: middle;" />`;
+
+            markdownContent.appendMarkdown(`[${editIcon} 编辑](command:localComment.quickEditCommentFromHover?${encodeURIComponent(editArgs)} "快速编辑注释") | `);
+            markdownContent.appendMarkdown(`[${markDownIcon} Markdown编辑](command:localComment.editCommentFromHover?${encodeURIComponent(editArgs)} "多行编辑注释") | `);
+            markdownContent.appendMarkdown(`[${deleteIcon} 删除](command:localComment.removeCommentFromHover?${encodeURIComponent(removeArgs)} "删除注释")`);
             
             return new vscode.Hover(markdownContent);
         }
