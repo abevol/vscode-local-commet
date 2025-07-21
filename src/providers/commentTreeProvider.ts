@@ -3,17 +3,18 @@ import * as path from 'path';
 import { CommentManager, LocalComment, FileComments } from '../commentManager';
 import { FileHeatManager } from '../fileHeatManager';
 import { BookmarkManager, Bookmark } from '../bookmarkManager';
+import { createDataUri } from '../utils';
 
 export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeItem>, vscode.Disposable {
     private _onDidChangeTreeData: vscode.EventEmitter<CommentTreeItem | undefined | null | void> = new vscode.EventEmitter<CommentTreeItem | undefined | null | void>();
     readonly onDidChangeTreeData: vscode.Event<CommentTreeItem | undefined | null | void> = this._onDidChangeTreeData.event;
     private disposables: vscode.Disposable[] = [];
-
+    
     constructor(private commentManager: CommentManager, private fileHeatManager?: FileHeatManager, private bookmarkManager?: BookmarkManager) {
         // 监听文件热度更新事件，只有在热度更新时才刷新排序
         if (this.fileHeatManager) {
             const heatUpdateDisposable = this.fileHeatManager.onDidUpdateHeat(() => {
-                console.log('🔥 [CommentTreeProvider] 文件热度更新，触发注释树刷新');
+                console.log('[CommentTreeProvider] 文件热度更新，触发注释树刷新');
                 this.refresh(); // 热度更新时刷新注释树排序
             });
             this.disposables.push(heatUpdateDisposable);
@@ -80,17 +81,11 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
                         const lastAccessTime = new Date(heatInfo.lastAccessTime).toLocaleString();
                         const activeMinutes = Math.round(heatInfo.totalActiveTime / (60 * 1000));
                         
-                        tooltip = `${filePath}\n\n📊 文件热度信息:\n` +
-                                `🔥 热度分数: ${heatScore.toFixed(1)}\n` +
-                                `👁️ 访问次数: ${heatInfo.accessCount}\n` +
-                                `🕒 最后访问: ${lastAccessTime}\n` +
-                                `⏱️ 活跃时间: ${activeMinutes}分钟`;
-                        
-                        // 给当前正在编辑的文件添加特殊标识
-                        const currentEditor = vscode.window.activeTextEditor;
-                        if (currentEditor && currentEditor.document.uri.fsPath === filePath) {
-                            displayName = `🔥 ${displayName}`;
-                        }
+                        tooltip = `${filePath}\n\n文件热度信息:\n` +
+                                `热度分数: ${heatScore.toFixed(1)}\n` +
+                                `访问次数: ${heatInfo.accessCount}\n` +
+                                `最后访问: ${lastAccessTime}\n` +
+                                `活跃时间: ${activeMinutes}分钟`;
                     }
                 }
                 
@@ -101,7 +96,21 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
                 );
                 fileNode.filePath = filePath;
                 fileNode.tooltip = tooltip;
-                fileNode.iconPath = new vscode.ThemeIcon('file-code');
+                
+                // 为当前编辑的高热度文件设置特殊图标
+                const currentEditor = vscode.window.activeTextEditor;
+                const isCurrentFile = currentEditor && currentEditor.document.uri.fsPath === filePath;
+                const currentHeatScore = this.fileHeatManager ? this.fileHeatManager.calculateHeatScore(filePath) : 0;
+                const hasHeat = currentHeatScore > 0;
+                
+                if (isCurrentFile && hasHeat) {
+                    // 使用火焰图标表示当前编辑的高热度文件
+                    fileNode.iconPath = new vscode.ThemeIcon('heart');
+                } else {
+                    // 使用默认的文件图标
+                    fileNode.iconPath = new vscode.ThemeIcon('file-code');
+                }
+                
                 fileNodes.push(fileNode);
             }
         }
@@ -258,12 +267,12 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
             
             // 创建tooltip
             const markdownTooltip = new vscode.MarkdownString();
-            markdownTooltip.appendMarkdown(`📖 **书签**\n\n`);
-            markdownTooltip.appendMarkdown(`📍 位置: 第 ${bookmark.line + 1} 行\n\n`);
+            markdownTooltip.appendMarkdown(`**书签**\n\n`);
+            markdownTooltip.appendMarkdown(`位置: 第 ${bookmark.line + 1} 行\n\n`);
             if (bookmark.label) {
-                markdownTooltip.appendMarkdown(`🏷️ 标签: ${bookmark.label}\n\n`);
+                markdownTooltip.appendMarkdown(`标签: ${bookmark.label}\n\n`);
             }
-            markdownTooltip.appendMarkdown(`🕒 创建时间: ${new Date(bookmark.timestamp).toLocaleString()}`);
+            markdownTooltip.appendMarkdown(`创建时间: ${new Date(bookmark.timestamp).toLocaleString()}`);
             bookmarkNode.tooltip = markdownTooltip;
             
             // 添加命令，点击时跳转到对应位置

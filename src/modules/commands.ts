@@ -1170,6 +1170,21 @@ export function registerCommands(
                 return;
             }
 
+            // 根据置信度使用不同的Codicon图标
+            const getConfidenceIcon = (confidence: 'high' | 'medium' | 'low') => {
+                // 使用VS Code内置的Codicon图标
+                switch (confidence) {
+                    case 'high':
+                        return '$(star-full)'; // 实心星星，表示高置信度
+                    case 'medium':
+                        return '$(star-half)'; // 半星，表示中等置信度
+                    case 'low':
+                        return '$(star-empty)'; // 空心星星，表示低置信度
+                    default:
+                        return '$(circle-outline)';
+                }
+            };
+
             // 定义候选项类型
             interface FuzzyMatchQuickPickItem extends vscode.QuickPickItem {
                 candidate: {
@@ -1187,8 +1202,7 @@ export function registerCommands(
                 similarity: number;
                 confidence: 'high' | 'medium' | 'low';
             }) => {
-                const confidenceIcon = candidate.confidence === 'high' ? '🟢' : 
-                                     candidate.confidence === 'medium' ? '🟡' : '🔴';
+                const confidenceIcon = getConfidenceIcon(candidate.confidence);
                 const similarityPercent = Math.round(candidate.similarity * 100);
                 
                 return {
@@ -1202,7 +1216,7 @@ export function registerCommands(
 
             // 添加取消选项
             quickPickItems.push({
-                label: '❌ 取消匹配',
+                label: '取消匹配',
                 description: '不进行匹配，保持注释隐藏状态',
                 detail: '',
                 candidate: null
