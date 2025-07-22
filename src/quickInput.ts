@@ -36,7 +36,7 @@ export async function showQuickInputWithTagCompletion(
                         if (filteredTags.length > 0) {
                             const items = filteredTags.map((tag: string) => ({
                                 label: `@${tag}`,
-                                description: '🏷️ 标签补全',
+                                description: '标签补全',
                                 detail: `插入标签引用 @${tag}`,
                                 originalTag: tag
                             }));

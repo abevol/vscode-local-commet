@@ -3,7 +3,6 @@ import * as path from 'path';
 import { CommentManager, LocalComment, FileComments } from '../commentManager';
 import { FileHeatManager } from '../fileHeatManager';
 import { BookmarkManager, Bookmark } from '../bookmarkManager';
-import { createDataUri } from '../utils';
 
 export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeItem>, vscode.Disposable {
     private _onDidChangeTreeData: vscode.EventEmitter<CommentTreeItem | undefined | null | void> = new vscode.EventEmitter<CommentTreeItem | undefined | null | void>();

@@ -83,11 +83,11 @@ export function registerCommands(
         const tagDeclarations = tagManager.getTagDeclarations();
         const tagReferences = tagManager.getTagReferences();
         
-        let message = `📊 ${projectInfo.name} 项目注释统计:\n\n`;
-        message += `📁 包含注释的文件: ${fileCount} 个\n`;
-        message += `💬 总注释数量: ${totalComments} 条\n`;
-        message += `🏷️ 标签声明: ${tagDeclarations.size} 个\n`;
-        message += `🔗 标签引用: ${tagReferences.length} 个\n\n`;
+        let message = `${projectInfo.name} 项目注释统计:\n\n`;
+        message += `包含注释的文件: ${fileCount} 个\n`;
+        message += `总注释数量: ${totalComments} 条\n`;
+        message += `标签声明: ${tagDeclarations.size} 个\n`;
+        message += `标签引用: ${tagReferences.length} 个\n\n`;
         
         if (fileCount > 0) {
             message += `📋 详细信息:\n`;
@@ -98,14 +98,14 @@ export function registerCommands(
         }
         
         if (tagDeclarations.size > 0) {
-            message += `\n🏷️ 可用标签:\n`;
+            message += `\n️ 可用标签:\n`;
             for (const tagName of tagManager.getAvailableTagNames()) {
                 message += `• $${tagName}\n`;
             }
         }
         
-        message += `\n💾 存储位置: ${projectInfo.storageFile}`;
-        message += `\nℹ️ 注意: 注释数据按项目分离存储`;
+        message += `\n 存储位置: ${projectInfo.storageFile}`;
+        message += `\n️ 注意: 注释数据按项目分离存储`;
         
         vscode.window.showInformationMessage(message, { modal: true });
     });
@@ -128,8 +128,8 @@ export function registerCommands(
                 return;
             }
             
-            let message = `📋 所有项目注释数据:\n\n`;
-            message += `📁 项目数量: ${files.length} 个\n\n`;
+            let message = ` 所有项目注释数据:\n\n`;
+            message += ` 项目数量: ${files.length} 个\n\n`;
             
             let totalFiles = 0;
             let totalComments = 0;
@@ -146,14 +146,14 @@ export function registerCommands(
                     
                     // 从文件名解析项目名称（格式：项目名-哈希值.json）
                     const projectName = file.replace(/-[a-f0-9]+\.json$/, '');
-                    message += `🗂️ ${projectName}: ${fileCount} 个文件, ${commentCount} 条注释\n`;
+                    message += `${projectName}: ${fileCount} 个文件, ${commentCount} 条注释\n`;
                 } catch (error) {
                     console.error(`读取项目文件失败: ${file}`, error);
                 }
             }
             
-            message += `\n📊 总计: ${totalFiles} 个文件, ${totalComments} 条注释`;
-            message += `\n💾 存储目录: ${projectsDir}`;
+            message += `\n 总计: ${totalFiles} 个文件, ${totalComments} 条注释`;
+            message += `\n 存储目录: ${projectsDir}`;
             
             vscode.window.showInformationMessage(
                 message,
@@ -937,7 +937,7 @@ export function registerCommands(
             if (success) {
                 const fileCount = Object.keys(allComments).length;
                 vscode.window.showInformationMessage(
-                    `✅ 导出成功！已导出 ${fileCount} 个文件的 ${totalComments} 条注释`,
+                    `导出成功！已导出 ${fileCount} 个文件的 ${totalComments} 条注释`,
                     '打开文件位置', '查看文件'
                 ).then(selection => {
                     if (selection === '打开文件位置') {
@@ -997,12 +997,12 @@ export function registerCommands(
             const currentProject = commentManager.getProjectInfo();
 
             // 显示导入预览信息
-            let previewMessage = `📋 导入预览:\n\n`;
-            previewMessage += `📁 源项目: ${validation.projectName}\n`;
-            previewMessage += `📁 目标项目: ${currentProject.name}\n`;
-            previewMessage += `📅 导出时间: ${validation.exportTime}\n`;
-            previewMessage += `📂 文件数量: ${validation.fileCount} 个\n`;
-            previewMessage += `💬 注释数量: ${validation.commentCount} 条\n\n`;
+            let previewMessage = `导入预览:\n\n`;
+            previewMessage += `源项目: ${validation.projectName}\n`;
+            previewMessage += `目标项目: ${currentProject.name}\n`;
+            previewMessage += `导出时间: ${validation.exportTime}\n`;
+            previewMessage += `文件数量: ${validation.fileCount} 个\n`;
+            previewMessage += `注释数量: ${validation.commentCount} 条\n\n`;
 
             // 检查是否需要跨项目导入
             const needsCrossProjectImport = pathAnalysis.commonBasePath && 
@@ -1013,44 +1013,27 @@ export function registerCommands(
                 description: string;
                 detail: string;
                 mode: 'merge' | 'replace';
-                crossProject: 'direct' | 'remap';
             }> = [];
 
             if (needsCrossProjectImport) {
                 // 跨项目导入选项
-                previewMessage += `⚠️ 检测到跨项目导入需求\n`;
+                previewMessage += `检测到跨项目导入需求\n`;
                 previewMessage += `源项目路径: ${pathAnalysis.commonBasePath}\n`;
                 previewMessage += `当前项目路径: ${currentProject.path}\n\n`;
                 previewMessage += `请选择导入方式:`;
 
                 importOptions = [
                     {
-                        label: '🔄 智能路径重映射 + 合并',
-                        description: '推荐：自动重映射文件路径并合并注释',
+                        label: '路径重映射 + 合并',
+                        description: '自动重映射文件路径并合并注释',
                         detail: `将源路径 ${pathAnalysis.commonBasePath} 映射到 ${currentProject.path}`,
-                        mode: 'merge',
-                        crossProject: 'remap'
+                        mode: 'merge'
                     },
                     {
-                        label: '🔄 智能路径重映射 + 替换',
+                        label: '路径重映射 + 替换',
                         description: '自动重映射文件路径并替换所有注释',
-                        detail: '⚠️ 警告：这将删除当前项目的所有注释数据',
-                        mode: 'replace',
-                        crossProject: 'remap'
-                    },
-                    {
-                        label: '📁 直接导入 + 合并',
-                        description: '保持原始路径直接导入',
-                        detail: '注释将保持原始文件路径，可能无法匹配当前项目文件',
-                        mode: 'merge',
-                        crossProject: 'direct'
-                    },
-                    {
-                        label: '📁 直接导入 + 替换',
-                        description: '保持原始路径直接导入并替换',
-                        detail: '⚠️ 警告：这将删除当前项目的所有注释数据',
-                        mode: 'replace',
-                        crossProject: 'direct'
+                        detail: '警告：这将删除当前项目的所有注释数据',
+                        mode: 'replace'
                     }
                 ];
             } else {
@@ -1059,18 +1042,16 @@ export function registerCommands(
 
                 importOptions = [
                     {
-                        label: '🔄 合并导入',
+                        label: '合并导入',
                         description: '将导入的注释与现有注释合并',
                         detail: '如果存在相同ID的注释将跳过，保留现有数据',
-                        mode: 'merge',
-                        crossProject: 'direct'
+                        mode: 'merge'
                     },
                     {
-                        label: '🔄 替换导入',
+                        label: '替换导入',
                         description: '用导入的注释替换所有现有注释',
-                        detail: '⚠️ 警告：这将删除当前项目的所有注释数据',
-                        mode: 'replace',
-                        crossProject: 'direct'
+                        detail: '警告：这将删除当前项目的所有注释数据',
+                        mode: 'replace'
                     }
                 ];
             }
@@ -1088,7 +1069,7 @@ export function registerCommands(
             // 如果是替换模式，再次确认
             if (importMode.mode === 'replace') {
                 const confirm = await vscode.window.showWarningMessage(
-                    '⚠️ 确定要替换所有现有注释数据吗？\n\n此操作将删除当前项目的所有注释，且不可恢复！',
+                    '确定要替换所有现有注释数据吗？\n\n此操作将删除当前项目的所有注释，且不可恢复！',
                     { modal: true },
                     '确定替换', '取消'
                 );
@@ -1101,7 +1082,7 @@ export function registerCommands(
             // 准备路径映射配置
             let pathMapping: { oldBasePath: string; newBasePath: string } | undefined;
             
-            if (importMode.crossProject === 'remap' && pathAnalysis.commonBasePath) {
+            if (needsCrossProjectImport && pathAnalysis.commonBasePath) {
                 pathMapping = {
                     oldBasePath: pathAnalysis.commonBasePath,
                     newBasePath: currentProject.path.replace(/\\/g, '/') + '/'
@@ -1110,9 +1091,8 @@ export function registerCommands(
 
             // 执行导入
             const result = await commentManager.importComments(
-                importPath, 
-                importMode.mode, 
-                importMode.crossProject,
+                importPath,
+                importMode.mode,
                 pathMapping
             );
             

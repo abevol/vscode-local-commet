@@ -85,19 +85,19 @@ export class BookmarkDecorationProvider implements vscode.Disposable {
 
     private createHoverMessage(bookmark: any): vscode.MarkdownString {
         const markdown = new vscode.MarkdownString();
-        markdown.appendMarkdown(`📖 **书签**\n\n`);
+        markdown.appendMarkdown(`**书签**\n\n`);
         
         if (bookmark.label) {
-            markdown.appendMarkdown(`🏷️ **标签**: ${bookmark.label}\n\n`);
+            markdown.appendMarkdown(`**标签**: ${bookmark.label}\n\n`);
         }
         
         if (bookmark.lineContent) {
-            markdown.appendMarkdown(`📄 **代码内容**: \`${bookmark.lineContent}\`\n\n`);
+            markdown.appendMarkdown(`**代码内容**: \`${bookmark.lineContent}\`\n\n`);
         }
         
-        markdown.appendMarkdown(`📍 **位置**: 第 ${bookmark.line + 1} 行\n\n`);
-        markdown.appendMarkdown(`🕒 **创建时间**: ${new Date(bookmark.timestamp).toLocaleString()}\n\n`);
-        markdown.appendMarkdown(`💡 *使用 Ctrl+Alt+K 可以切换书签*`);
+        markdown.appendMarkdown(`**位置**: 第 ${bookmark.line + 1} 行\n\n`);
+        markdown.appendMarkdown(`**创建时间**: ${new Date(bookmark.timestamp).toLocaleString()}\n\n`);
+        markdown.appendMarkdown(`*使用 Ctrl+Alt+K 可以切换书签*`);
         
         return markdown;
     }

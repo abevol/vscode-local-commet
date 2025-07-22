@@ -785,9 +785,8 @@ export class CommentManager {
      * @returns 导入结果信息
      */
     public async importComments(
-        importPath: string, 
+        importPath: string,
         mergeMode: 'replace' | 'merge' = 'merge',
-        crossProjectMode: 'direct' | 'remap' = 'direct',
         pathMapping?: { oldBasePath: string; newBasePath: string }
     ): Promise<{
         success: boolean;
@@ -837,7 +836,7 @@ export class CommentManager {
                 let targetFilePath = originalFilePath;
 
                 // 处理跨项目路径重映射
-                if (crossProjectMode === 'remap' && pathMapping) {
+                if (pathMapping) {
                     const { oldBasePath, newBasePath } = pathMapping;
                     
                     // 标准化路径分隔符

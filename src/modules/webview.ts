@@ -80,7 +80,7 @@ export async function showWebViewInput(
         // 优化：创建WebView面板，减少不必要的配置
         const panel = vscode.window.createWebviewPanel(
             'localCommentInput',
-            '📝 本地注释编辑',
+            '本地注释编辑',
             viewColumn,
             {
                 enableScripts: true,
@@ -239,13 +239,13 @@ function getWebviewContent(
     // 构建上下文信息HTML（总是显示，即使没有contextInfo）
     let contextHtml = '';
     contextHtml = '<div class="context-info">';
-    contextHtml += '<div class="context-title">📍 代码上下文</div>';
+    contextHtml += '<div class="context-title">代码上下文</div>';
     
     // 添加tab切换功能
     contextHtml += '<div class="context-tabs">';
     contextHtml += '<div class="tab-header">';
-    contextHtml += '<button class="tab-btn active" data-tab="code-tab">📷 代码快照</button>';
-    contextHtml += '<button class="tab-btn" data-tab="preview-tab">📖 Markdown预览</button>';
+    contextHtml += '<button class="tab-btn active" data-tab="code-tab">代码快照</button>';
+    contextHtml += '<button class="tab-btn" data-tab="preview-tab">Markdown预览</button>';
     contextHtml += '</div>';
     
     // 代码快照tab内容
@@ -255,7 +255,7 @@ function getWebviewContent(
         // 如果文件不存在，显示特殊提示
         if (contextInfo.fileNotFound) {
             contextHtml += `<div class="context-item file-not-found">
-                <span class="context-label">⚠️ 文件状态:</span>
+                <span class="context-label">文件状态:</span>
                 <span class="context-value">原文件已删除或移动</span>
             </div>`;
             if (contextInfo.filePath) {
