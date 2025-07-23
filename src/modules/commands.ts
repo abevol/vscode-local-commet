@@ -1483,6 +1483,15 @@ export function registerCommands(
         }
     });
 
+    const clearAllBookmarksCommand = vscode.commands.registerCommand('localComment.clearAllBookmarks', async () => {
+        if (!bookmarkManager) {
+            vscode.window.showErrorMessage('书签管理器未初始化');
+            return;
+        }
+
+        await bookmarkManager.clearAllBookmarks();
+    });
+
     const goToNextBookmarkCommand = vscode.commands.registerCommand('localComment.goToNextBookmark', async () => {
         if (!bookmarkManager) {
             vscode.window.showErrorMessage('书签管理器未初始化');
@@ -1600,6 +1609,7 @@ export function registerCommands(
         goToBookmarkCommand,
         deleteBookmarkFromTreeCommand,
         clearFileBookmarksCommand,
+        clearAllBookmarksCommand,
         goToNextBookmarkCommand,
         goToPreviousBookmarkCommand,
         showCurrentFileBookmarksCommand

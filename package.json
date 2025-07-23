@@ -202,6 +202,11 @@
         "category": "Local Comment"
       },
       {
+        "command": "localComment.clearAllBookmarks",
+        "title": "%clearAllBookmarks%",
+        "category": "Local Comment"
+      },
+      {
         "command": "localComment.goToNextBookmark",
         "title": "%goToNextBookmark%",
         "category": "Local Comment"

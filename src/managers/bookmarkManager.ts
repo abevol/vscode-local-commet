@@ -295,6 +295,26 @@ export class BookmarkManager {
     }
 
     /**
+     * 清除项目的所有书签
+     */
+    public async clearAllBookmarks(): Promise<void> {
+        // 计算当前总书签数
+        const totalCount = Object.values(this.bookmarks).reduce((sum, bookmarks) => sum + bookmarks.length, 0);
+        
+        if (totalCount === 0) {
+            vscode.window.showInformationMessage('项目中没有书签');
+            return;
+        }
+
+        // 清空所有书签
+        this.bookmarks = {};
+        this._invalidateCache();
+        await this.saveBookmarks();
+        this._onDidChangeBookmarks.fire();
+        vscode.window.showInformationMessage(`已清除项目中的所有书签，共删除 ${totalCount} 个书签`);
+    }
+
+    /**
      * 跳转到书签
      */
     public async goToBookmark(filePath: string, line: number): Promise<void> {
