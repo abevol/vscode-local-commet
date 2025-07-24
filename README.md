@@ -211,6 +211,12 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
+## [1.1.2] - 2025-07-24
+- ✨ Added support for saving text with Ctrl+S while editing Markdown.
+- ✨ Added a feature to clear all bookmarks in files in the local comment command.
+- 🔨 Fixed the issue where some icon styles were not displayed correctly on the Linux platform.
+- 🔨 Fixed some known issues.
+
 ## [1.1.1] -2025-07-08
 - ✨ Markdonw optimize the preview position using the tab box style
 - 🔨 fixed the issue where the auto-completion position was incorrect and not displayed when using the @ tag when there were too many lines in markdown
