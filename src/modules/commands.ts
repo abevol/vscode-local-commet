@@ -8,6 +8,7 @@ import { CommentTreeProvider } from '../providers/commentTreeProvider';
 import { BookmarkManager } from '../managers/bookmarkManager';
 import { showWebViewInput, getCodeContext } from './webview';
 import { showQuickInputWithTagCompletion } from '../utils/quickInput';
+import { AuthWebview } from './authWebview';
 
 export function registerCommands(
     context: vscode.ExtensionContext,
@@ -15,7 +16,8 @@ export function registerCommands(
     tagManager: TagManager,
     commentProvider: CommentProvider,
     commentTreeProvider: CommentTreeProvider,
-    bookmarkManager?: BookmarkManager
+    bookmarkManager?: BookmarkManager,
+    authManager?: any
 ) {
     // 辅助函数：创建保存并继续的回调函数
     function createSaveAndContinueCallback(
@@ -1567,6 +1569,55 @@ export function registerCommands(
         }
     });
 
+    // 认证相关命令
+    const logoutCommand = vscode.commands.registerCommand('localComment.logout', async () => {
+        if (!authManager) {
+            vscode.window.showErrorMessage('认证管理器未初始化');
+            return;
+        }
+        
+        if (!authManager.isLoggedIn()) {
+            vscode.window.showInformationMessage('您尚未登录');
+            return;
+        }
+        
+        const result = await vscode.window.showWarningMessage(
+            '确定要登出吗？',
+            '确定',
+            '取消'
+        );
+        
+        if (result === '确定') {
+            await authManager.logout();
+            vscode.window.showInformationMessage('已成功登出');
+        }
+    });
+
+    const showUserInfoCommand = vscode.commands.registerCommand('localComment.showUserInfo', () => {
+        if (!authManager) {
+            vscode.window.showErrorMessage('认证管理器未初始化');
+            return;
+        }
+        
+        // 如果未登录，显示登录界面
+        if (!authManager.isLoggedIn()) {
+            AuthWebview.createOrShow(context.extensionUri, authManager);
+            return;
+        }
+        
+        // 如果已登录，显示用户信息
+        const user = authManager.getCurrentUser();
+        if (user) {
+            const message = `用户信息:\n\n` +
+                `用户名: ${user.username}\n` +
+                `邮箱: ${user.email}\n` +
+                `创建时间: ${new Date(user.createdAt).toLocaleString()}\n` +
+                `最后登录: ${new Date(user.lastLoginAt).toLocaleString()}`;
+            
+            vscode.window.showInformationMessage(message);
+        }
+    });
+
     // 返回所有注册的命令，以便在extension.ts中添加到subscriptions
     return [
         showStorageLocationCommand,
@@ -1602,6 +1653,9 @@ export function registerCommands(
         clearFileBookmarksCommand,
         goToNextBookmarkCommand,
         goToPreviousBookmarkCommand,
-        showCurrentFileBookmarksCommand
+        showCurrentFileBookmarksCommand,
+        // 认证相关命令
+        logoutCommand,
+        showUserInfoCommand
     ];
 } 

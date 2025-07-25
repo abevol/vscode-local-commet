@@ -30,5 +30,8 @@
   "goToNextBookmark": "跳转到下一个书签",
   "goToPreviousBookmark": "跳转到上一个书签",
   "showCurrentFileBookmarks": "显示当前文件书签列表",
+
+  "logout": "用户登出",
+  "showUserInfo": "显示用户信息",
   "treeViewTitle": "本地注释"
 } 

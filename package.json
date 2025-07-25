@@ -215,6 +215,16 @@
         "command": "localComment.showCurrentFileBookmarks",
         "title": "%showCurrentFileBookmarks%",
         "category": "Local Comment"
+      },
+      {
+        "command": "localComment.logout",
+        "title": "%logout%",
+        "category": "Local Comment"
+      },
+      {
+        "command": "localComment.showUserInfo",
+        "title": "%showUserInfo%",
+        "category": "Local Comment"
       }
     ],
     "views": {
