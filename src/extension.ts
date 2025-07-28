@@ -12,6 +12,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { registerCommands } from './modules/commands';
 import { AuthManager } from './managers/authManager';
+import { ProjectManager } from './managers/projectManager';
+import { UserInfoWebview } from './modules/userInfoWebview';
 
 let commentManager: CommentManager;
 let commentProvider: CommentProvider;
@@ -21,6 +23,7 @@ let fileHeatManager: FileHeatManager;
 let bookmarkManager: BookmarkManager;
 let bookmarkDecorationProvider: BookmarkDecorationProvider;
 let authManager: AuthManager;
+let projectManager: ProjectManager;
 
 // 全局变量，用于跟踪最后一次键盘活动时间
 let lastKeyboardActivity = Date.now();
@@ -57,12 +60,51 @@ export function activate(context: vscode.ExtensionContext) {
     commentTreeProvider = new CommentTreeProvider(commentManager, fileHeatManager, bookmarkManager);
     tagManager = new TagManager();
     authManager = new AuthManager(context);
+    projectManager = new ProjectManager(context);
 
     // 初始化标签数据
     tagManager.updateTags(commentManager.getAllComments());
 
     // 注册命令
     const commandDisposables = registerCommands(context, commentManager, tagManager, commentProvider, commentTreeProvider, bookmarkManager, authManager);
+
+    // 注册一个新命令来显示用户信息面板
+    context.subscriptions.push(vscode.commands.registerCommand('localComment.showUserInfo', () => {
+        if (!authManager) {
+            vscode.window.showErrorMessage('认证管理器未初始化');
+            return;
+        }
+        
+        // 如果未登录，显示登录界面
+        if (!authManager.isLoggedIn()) {
+            const { AuthWebview } = require('./modules/authWebview');
+            AuthWebview.createOrShow(context.extensionUri, authManager);
+            return;
+        }
+        
+        // 如果已登录，显示用户信息面板
+        UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+    }));
+
+    // (可选) 如果你希望在VS Code重启后能恢复用户信息面板
+    vscode.window.registerWebviewPanelSerializer(UserInfoWebview.viewType, {
+        async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+            // 恢复webview时也需要检查认证状态
+            if (!authManager) {
+                console.error('认证管理器未初始化，无法恢复用户信息面板');
+                webviewPanel.dispose();
+                return;
+            }
+            
+            // 如果用户已登录，恢复用户信息面板
+            if (authManager.isLoggedIn()) {
+                UserInfoWebview.revive(webviewPanel, context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+            } else {
+                // 如果用户未登录，关闭面板
+                webviewPanel.dispose();
+            }
+        }
+    });
 
     // 注册用于修改树视图样式的CSS
     const decorationProvider = vscode.window.registerFileDecorationProvider({

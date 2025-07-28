@@ -4,6 +4,7 @@ import { AuthManager } from '../managers/authManager';
 import { CommentManager } from '../managers/commentManager';
 import { BookmarkManager } from '../managers/bookmarkManager';
 import { TagManager } from '../managers/tagManager';
+import { ProjectManager } from '../managers/projectManager';
 
 export class UserInfoWebview {
     public static currentPanel: UserInfoWebview | undefined;
@@ -17,10 +18,12 @@ export class UserInfoWebview {
     private _commentManager?: CommentManager;
     private _bookmarkManager?: BookmarkManager;
     private _tagManager?: TagManager;
+    private _projectManager: ProjectManager;
 
     public static createOrShow(
         extensionUri: vscode.Uri, 
         authManager: AuthManager,
+        projectManager: ProjectManager,
         commentManager?: CommentManager,
         bookmarkManager?: BookmarkManager,
         tagManager?: TagManager
@@ -59,6 +62,7 @@ export class UserInfoWebview {
             panel, 
             extensionUri, 
             authManager,
+            projectManager,
             commentManager,
             bookmarkManager,
             tagManager
@@ -69,6 +73,7 @@ export class UserInfoWebview {
         panel: vscode.WebviewPanel, 
         extensionUri: vscode.Uri, 
         authManager: AuthManager,
+        projectManager: ProjectManager,
         commentManager?: CommentManager,
         bookmarkManager?: BookmarkManager,
         tagManager?: TagManager
@@ -77,6 +82,7 @@ export class UserInfoWebview {
             panel, 
             extensionUri, 
             authManager,
+            projectManager,
             commentManager,
             bookmarkManager,
             tagManager
@@ -87,6 +93,7 @@ export class UserInfoWebview {
         panel: vscode.WebviewPanel, 
         extensionUri: vscode.Uri, 
         authManager: AuthManager,
+        projectManager: ProjectManager,
         commentManager?: CommentManager,
         bookmarkManager?: BookmarkManager,
         tagManager?: TagManager
@@ -94,6 +101,7 @@ export class UserInfoWebview {
         this._panel = panel;
         this._extensionUri = extensionUri;
         this._authManager = authManager;
+        this._projectManager = projectManager;
         this._commentManager = commentManager;
         this._bookmarkManager = bookmarkManager;
         this._tagManager = tagManager;
@@ -116,6 +124,9 @@ export class UserInfoWebview {
                         return;
                     case 'logout':
                         this.handleLogout();
+                        return;
+                    case 'associateProject':
+                        this.handleAssociateProject(message.projectId);
                         return;
                     case 'close':
                         this.dispose();
@@ -201,11 +212,26 @@ export class UserInfoWebview {
             // 从服务端获取用户所属的项目列表
             const projects = await this.getUserProjects();
 
-            // 发送项目列表到webview
+            // 获取当前工作区关联的项目ID，添加错误处理
+            let associatedProjectId: string | undefined;
+            try {
+                if (this._projectManager && typeof this._projectManager.getAssociatedProject === 'function') {
+                    associatedProjectId = this._projectManager.getAssociatedProject();
+                } else {
+                    console.warn('ProjectManager not properly initialized');
+                    associatedProjectId = undefined;
+                }
+            } catch (error) {
+                console.error('Error getting associated project:', error);
+                associatedProjectId = undefined;
+            }
+
+            // 发送项目列表到webview，包含关联状态信息
             this._panel.webview.postMessage({
                 command: 'projectsResult',
                 success: true,
-                data: projects
+                data: projects,
+                associatedProjectId: associatedProjectId
             });
         } catch (error) {
             console.error('获取项目列表失败:', error);
@@ -236,6 +262,33 @@ export class UserInfoWebview {
                 command: 'logoutResult',
                 success: false,
                 message: '退出登录失败: ' + (error as Error).message
+            });
+        }
+    }
+
+    private async handleAssociateProject(projectId: string) {
+        try {
+            await this._projectManager.associateProject(projectId);
+
+            // 通知webview关联成功
+            this._panel.webview.postMessage({
+                command: 'associateProjectResult',
+                success: true,
+                projectId: projectId
+            });
+
+            // 关联成功后，立即重新获取项目列表以更新状态
+            this.handleGetProjects();
+        } catch (error) {
+            console.error('关联项目失败:', error);
+            vscode.window.showErrorMessage('关联项目失败: ' + (error as Error).message);
+            
+            // 通知webview关联失败
+            this._panel.webview.postMessage({
+                command: 'associateProjectResult',
+                success: false,
+                projectId: projectId,
+                message: '关联项目失败: ' + (error as Error).message
             });
         }
     }

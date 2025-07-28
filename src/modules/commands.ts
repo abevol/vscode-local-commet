@@ -1593,29 +1593,6 @@ export function registerCommands(
         }
     });
 
-    const showUserInfoCommand = vscode.commands.registerCommand('localComment.showUserInfo', () => {
-        if (!authManager) {
-            vscode.window.showErrorMessage('认证管理器未初始化');
-            return;
-        }
-        
-        // 如果未登录，显示登录界面
-        if (!authManager.isLoggedIn()) {
-            AuthWebview.createOrShow(context.extensionUri, authManager);
-            return;
-        }
-        
-        // 如果已登录，显示用户信息面板
-        const { UserInfoWebview } = require('../modules/userInfoWebview');
-        UserInfoWebview.createOrShow(
-            context.extensionUri, 
-            authManager, 
-            commentManager, 
-            bookmarkManager, 
-            tagManager
-        );
-    });
-
     // 返回所有注册的命令，以便在extension.ts中添加到subscriptions
     return [
         showStorageLocationCommand,
@@ -1654,6 +1631,5 @@ export function registerCommands(
         showCurrentFileBookmarksCommand,
         // 认证相关命令
         logoutCommand,
-        showUserInfoCommand
     ];
 } 

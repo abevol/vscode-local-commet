@@ -204,12 +204,13 @@ body {
 .project-item {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: 16px;
     background: var(--vscode-list-hoverBackground);
     border-radius: 6px;
     border: 1px solid var(--vscode-panel-border);
     transition: all 0.2s ease;
-    cursor: pointer;
+    gap: 16px;
 }
 
 .project-item:hover {
@@ -217,6 +218,13 @@ body {
     border-color: var(--vscode-focusBorder);
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.project-info-wrapper {
+    display: flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
 }
 
 .project-icon {
@@ -434,6 +442,11 @@ body {
 
 .btn-danger:hover {
     background: #d32f2f;
+}
+
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
 }
 
 /* 错误消息 */

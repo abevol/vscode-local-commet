@@ -168,13 +168,13 @@ function showProjectsLoading() {
 }
 
 // 显示项目列表
-function showProjectsList(projects) {
+function showProjectsList(projects, associatedProjectId) {
     projectsLoadingEl.style.display = 'none';
     projectsListEl.style.display = 'block';
     projectsEmptyEl.style.display = 'none';
     projectsErrorEl.style.display = 'none';
     
-    populateProjectsList(projects);
+    populateProjectsList(projects, associatedProjectId);
 }
 
 // 显示项目为空
@@ -195,7 +195,7 @@ function showProjectsError(message) {
 }
 
 // 填充项目列表
-function populateProjectsList(projects) {
+function populateProjectsList(projects, associatedProjectId) {
     if (!projects || projects.length === 0) {
         showProjectsEmpty();
         return;
@@ -206,30 +206,53 @@ function populateProjectsList(projects) {
     projects.forEach(project => {
         const projectItem = document.createElement('div');
         projectItem.className = 'project-item';
-        projectItem.onclick = () => {
-            // 可以在这里添加项目点击事件
-        };
+        
+        // 检查这个项目是否已经关联（转换为字符串进行比较，避免类型不匹配）
+        const isAssociated = String(associatedProjectId) === String(project.id);
+        const buttonText = isAssociated ? '已关联' : '关联';
+        const buttonDisabled = isAssociated ? 'disabled' : '';
         
         projectItem.innerHTML = `
-            <div class="project-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M4 7V4C4 2.89543 4.89543 2 6 2H18C19.1046 2 20 2.89543 20 4V7" stroke="currentColor" stroke-width="2"/>
-                    <path d="M4 7H20L19 21H5L4 7Z" stroke="currentColor" stroke-width="2"/>
-                    <path d="M9 11V7" stroke="currentColor" stroke-width="2"/>
-                    <path d="M15 11V7" stroke="currentColor" stroke-width="2"/>
-                </svg>
-            </div>
-            <div class="project-details">
-                <div class="project-name">${project.name || '未知项目'}</div>
-                <div class="project-description">${project.description || '暂无描述'}</div>
-                <div class="project-meta">
-                    <span class="project-role ${project.role || 'member'}">${getRoleText(project.role)}</span>
-                    ${project.memberCount ? `<span class="project-members">${project.memberCount} 个成员</span>` : ''}
+            <div class="project-info-wrapper">
+                <div class="project-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M4 7V4C4 2.89543 4.89543 2 6 2H18C19.1046 2 20 2.89543 20 4V7" stroke="currentColor" stroke-width="2"/>
+                        <path d="M4 7H20L19 21H5L4 7Z" stroke="currentColor" stroke-width="2"/>
+                        <path d="M9 11V7" stroke="currentColor" stroke-width="2"/>
+                        <path d="M15 11V7" stroke="currentColor" stroke-width="2"/>
+                    </svg>
                 </div>
+                <div class="project-details">
+                    <div class="project-name">${project.name || '未知项目'}</div>
+                    <div class="project-description">${project.description || '暂无描述'}</div>
+                    <div class="project-meta">
+                        <span class="project-role ${project.role || 'member'}">${getRoleText(project.role)}</span>
+                        ${project.memberCount ? `<span class="project-members">${project.memberCount} 个成员</span>` : ''}
+                    </div>
+                </div>
+            </div>
+            <div class="project-actions">
+                <button class="btn btn-secondary btn-sm" data-project-id="${project.id}" ${buttonDisabled}>${buttonText}</button>
             </div>
         `;
         
         projectsListEl.appendChild(projectItem);
+    });
+
+    // 为所有关联按钮添加事件监听
+    const associateButtons = projectsListEl.querySelectorAll('.btn[data-project-id]:not([disabled])');
+    associateButtons.forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.stopPropagation(); // 防止触发 project-item 的点击事件
+            const projectId = button.dataset.projectId;
+            button.textContent = '关联中...';
+            button.disabled = true;
+
+            vscode.postMessage({
+                command: 'associateProject',
+                projectId: projectId
+            });
+        });
     });
 }
 
@@ -323,9 +346,26 @@ window.addEventListener('message', event => {
             break;
         case 'projectsResult':
             if (message.success) {
-                showProjectsList(message.data);
+                showProjectsList(message.data, message.associatedProjectId);
             } else {
                 showProjectsError(message.message || '获取项目列表失败');
+            }
+            break;
+        case 'associateProjectResult':
+            const btn = document.querySelector(`.btn[data-project-id="${message.projectId}"]`);
+            if (btn) {
+                if (message.success) {
+                    btn.textContent = '已关联';
+                    btn.disabled = true;
+                    // 可以考虑更新UI，例如高亮显示已关联的项目
+                } else {
+                    btn.textContent = '关联';
+                    btn.disabled = false;
+                    // 显示错误信息（如果有的话）
+                    if (message.message) {
+                        console.error('关联失败:', message.message);
+                    }
+                }
             }
             break;
         case 'logoutResult':
