@@ -44,7 +44,7 @@ export async function getCodeContext(uri: vscode.Uri, lineNumber: number, contex
     }
 }
 
-export async function showWebViewInput(
+export async function showMarkdownWebviewInput(
     context: vscode.ExtensionContext,
     prompt: string, 
     placeholder: string = '', 
@@ -86,7 +86,7 @@ export async function showWebViewInput(
                 enableScripts: true,
                 retainContextWhenHidden: true,  // 用户切换tab时，保留状态
                 localResourceRoots: [
-                    vscode.Uri.joinPath(context.extensionUri, 'src', 'templates'),
+                    vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs'),
                     vscode.Uri.joinPath(context.extensionUri, 'src', 'lib')
                 ]
             }
@@ -96,17 +96,17 @@ export async function showWebViewInput(
         const markedJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'marked.min.js');
         const markedJsUri = panel.webview.asWebviewUri(markedJsPath);
         
-        const cssPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'commentInput.css');
+        const cssPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.css');
         const cssUri = panel.webview.asWebviewUri(cssPath);
         
-        const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'commentInput.js');
+        const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.js');
         const jsUri = panel.webview.asWebviewUri(jsPath);
 
         // 优化：先显示面板，使用空的标签建议，后续异步加载
         const tagSuggestions = ''; // 先使用空字符串，后续异步更新
 
         // HTML内容
-        panel.webview.html = getWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), tagSuggestions);
+        panel.webview.html = getMarkdownWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), tagSuggestions);
 
         // 异步加载标签建议和代码上下文，避免阻塞界面显示
         setTimeout(async () => {
@@ -205,7 +205,7 @@ function restoreFocus(editor: vscode.TextEditor | undefined) {
     }
 }
 
-function getWebviewContent(
+function getMarkdownWebviewContent(
     context: vscode.ExtensionContext,
     prompt: string,
     placeholder: string,
@@ -370,7 +370,7 @@ function getWebviewContent(
 
     // 优化：使用缓存避免重复读取模板文件
     if (!templateCache) {
-        const templatePath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'commentInput.html');
+        const templatePath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.html');
         templateCache = fs.readFileSync(templatePath.fsPath, 'utf8');
     }
     let template = templateCache;

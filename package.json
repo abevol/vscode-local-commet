@@ -220,6 +220,16 @@
         "command": "localComment.showCurrentFileBookmarks",
         "title": "%showCurrentFileBookmarks%",
         "category": "Local Comment"
+      },
+      {
+        "command": "localComment.logout",
+        "title": "%logout%",
+        "category": "Local Comment"
+      },
+      {
+        "command": "localComment.showUserInfo",
+        "title": "%showUserInfo%",
+        "category": "Local Comment"
       }
     ],
     "views": {
@@ -410,18 +420,31 @@
         "mac": "cmd+alt+shift+j",
         "when": "editorTextFocus"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Local Comment",
+      "properties": {
+        "local-comment.server.apiUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8000",
+          "description": "The base URL of the Local Comment server (e.g. http://127.0.0.1:8000)."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
-    "build":"npx @vscode/vsce package",
-    "ls":"npx @vscode/vsce ls --tree", 
+    "build": "npx @vscode/vsce package",
+    "ls": "npx @vscode/vsce ls --tree",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/vscode": "^1.74.0",
     "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
     "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "axios": "^1.11.0"
   }
 }
