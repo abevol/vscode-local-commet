@@ -194,6 +194,11 @@ export function activate(context: vscode.ExtensionContext) {
     const onUserLogin = vscode.commands.registerCommand('localComment.onUserLogin', (user) => {
         updateStatusBar();
         vscode.window.showInformationMessage(`欢迎回来，${user.username}！`);
+        
+        // 登录成功后自动打开用户信息界面
+        setTimeout(() => {
+            vscode.commands.executeCommand('localComment.showUserInfo');
+        }, 300); // 延迟1秒，让用户看到欢迎消息
     });
 
     const onUserLogout = vscode.commands.registerCommand('localComment.onUserLogout', () => {

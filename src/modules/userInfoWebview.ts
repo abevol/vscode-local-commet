@@ -45,7 +45,13 @@ export class UserInfoWebview {
                 enableScripts: true,
                 localResourceRoots: [
                     vscode.Uri.joinPath(extensionUri, 'src', 'templates')
-                ]
+                ],
+                retainContextWhenHidden: true,
+                // 允许模态对话框
+                enableCommandUris: false,
+                enableFindWidget: false,
+                // 添加 allow-modals 以支持 confirm 对话框
+                portMapping: []
             }
         );
 
@@ -105,6 +111,9 @@ export class UserInfoWebview {
                     case 'getUserInfo':
                         this.handleGetUserInfo();
                         return;
+                    case 'getProjects':
+                        this.handleGetProjects();
+                        return;
                     case 'logout':
                         this.handleLogout();
                         return;
@@ -155,9 +164,6 @@ export class UserInfoWebview {
                 return;
             }
 
-            // 获取项目信息
-            const project = this.getProjectInfo();
-
             // 获取统计信息
             const stats = this.getUsageStats();
 
@@ -167,7 +173,6 @@ export class UserInfoWebview {
                 success: true,
                 data: {
                     user,
-                    project,
                     stats
                 }
             });
@@ -177,6 +182,37 @@ export class UserInfoWebview {
                 command: 'userInfoResult',
                 success: false,
                 message: '获取用户信息时发生错误: ' + (error as Error).message
+            });
+        }
+    }
+
+    private async handleGetProjects() {
+        try {
+            // 检查用户是否已登录
+            if (!this._authManager.isLoggedIn()) {
+                this._panel.webview.postMessage({
+                    command: 'projectsResult',
+                    success: false,
+                    message: '用户未登录'
+                });
+                return;
+            }
+
+            // 从服务端获取用户所属的项目列表
+            const projects = await this.getUserProjects();
+
+            // 发送项目列表到webview
+            this._panel.webview.postMessage({
+                command: 'projectsResult',
+                success: true,
+                data: projects
+            });
+        } catch (error) {
+            console.error('获取项目列表失败:', error);
+            this._panel.webview.postMessage({
+                command: 'projectsResult',
+                success: false,
+                message: '获取项目列表时发生错误: ' + (error as Error).message
             });
         }
     }
@@ -201,6 +237,17 @@ export class UserInfoWebview {
                 success: false,
                 message: '退出登录失败: ' + (error as Error).message
             });
+        }
+    }
+
+    private async getUserProjects() {
+        try {
+            // 使用AuthManager的公共方法获取项目列表
+            return await this._authManager.getUserProjects();
+        } catch (error) {
+            console.error('获取用户项目失败:', error);
+            // 如果API调用失败，返回空数组
+            return [];
         }
     }
 
@@ -296,6 +343,7 @@ export class UserInfoWebview {
         let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
 
         // Replace placeholders
+        html = html.replace(/\${cspSource}/g, webview.cspSource);
         html = html.replace(/\${cssUri}/g, stylesUri.toString());
         html = html.replace(/\${jsUri}/g, scriptUri.toString());
         html = html.replace(/\${nonce}/g, nonce);

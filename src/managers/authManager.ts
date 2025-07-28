@@ -207,6 +207,23 @@ export class AuthManager {
     }
 
     /**
+     * 获取用户所属的项目列表
+     */
+    public async getUserProjects(): Promise<any[]> {
+        try {
+            if (!this.isLoggedIn()) {
+                throw new Error('用户未登录');
+            }
+
+            const response = await this.apiClient.get('/api/v1/projects/me');
+            return response.data || [];
+        } catch (error) {
+            console.error('获取用户项目失败:', error);
+            throw error;
+        }
+    }
+
+    /**
      * 刷新会话
      */
     public async refreshSession(): Promise<boolean> {
