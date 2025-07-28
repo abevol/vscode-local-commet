@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>用户登录</title>
+    <link rel="stylesheet" href="${cssUri}">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>本地注释插件</h1>
+            <p>登录到CodeCorner以使用更多功能</p>
+        </div>
+        
+        <div id="login-content">
+            <div id="login-message" class="message"></div>
+            <div id="login-loading" class="loading">
+                <div class="spinner"></div>
+                <p>正在登录...</p>
+            </div>
+            
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">用户名</label>
+                    <input type="text" id="login-username" required>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">密码</label>
+                    <input type="password" id="login-password" required>
+                </div>
+                <button type="submit" class="btn btn-primary">登录</button>
+            </form>
+        </div>
+
+    </div>
+    
+    <script src="${jsUri}"></script>
+</body>
+</html> 

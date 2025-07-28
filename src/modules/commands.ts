@@ -6,7 +6,7 @@ import { TagManager } from '../managers/tagManager';
 import { CommentProvider } from '../providers/commentProvider';
 import { CommentTreeProvider } from '../providers/commentTreeProvider';
 import { BookmarkManager } from '../managers/bookmarkManager';
-import { showWebViewInput, getCodeContext } from './webview';
+import { showMarkdownWebviewInput, getCodeContext } from './markdownWebview';
 import { showQuickInputWithTagCompletion } from '../utils/quickInput';
 import { AuthWebview } from './authWebview';
 
@@ -501,7 +501,7 @@ export function registerCommands(
                 contextInfo.contextStartLine = codeContext.contextStartLine;
             }
 
-            const newContent = await showWebViewInput(
+            const newContent = await showMarkdownWebviewInput(
                 context,
                 '修改注释内容',
                 '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -652,7 +652,7 @@ export function registerCommands(
             }
             
             // 使用新的WebView输入界面
-            const newContent = await showWebViewInput(
+            const newContent = await showMarkdownWebviewInput(
                 context,
                 '编辑本地注释',
                 '请修改注释内容...',
@@ -722,7 +722,7 @@ export function registerCommands(
                     contextInfo.filePath = item.filePath;
                 }
                 
-                const newContent = await showWebViewInput(
+                const newContent = await showMarkdownWebviewInput(
                     context,
                     fileExists ? '修改注释内容' : '修改注释内容 (原文件已删除)',
                     fileExists ? 
@@ -819,7 +819,7 @@ export function registerCommands(
                     contextInfo.contextStartLine = codeContext.contextStartLine;
                 }
                 
-                const newContent = await showWebViewInput(
+                const newContent = await showMarkdownWebviewInput(
                     context,
                     '编辑多行本地注释',
                     '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -840,7 +840,7 @@ export function registerCommands(
             } else {
                 // 如果没有现有注释，添加新注释
                 // 优化：先显示编辑器，异步加载代码上下文
-                const content = await showWebViewInput(
+                const content = await showMarkdownWebviewInput(
                     context,
                     '添加多行本地注释',
                     '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
