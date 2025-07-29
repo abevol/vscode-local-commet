@@ -13,6 +13,7 @@ export interface LocalComment {
     originalLine: number; // 原始行号，用于跟踪位置变化
     lineContent: string; // 该行的内容，用于智能定位和作为代码快照
     isMatched?: boolean; // 标记注释是否匹配到代码
+    isShared?: boolean; // 标记注释是否是共享的
 }
 
 export interface FileComments {
@@ -181,7 +182,8 @@ export class CommentManager {
             content: content,
             timestamp: Date.now(),
             originalLine: line,
-            lineContent: lineContent.trim()
+            lineContent: lineContent.trim(),
+            isShared: false
         };
 
         // 检查是否已存在该行的注释，如果存在则替换
@@ -705,7 +707,8 @@ export class CommentManager {
             content: selectedText.trim(), // 使用选中的文字作为注释内容
             timestamp: Date.now(),
             originalLine: line,
-            lineContent: lineContent.trim()
+            lineContent: lineContent.trim(),
+            isShared: false
         };
 
         // 检查是否已存在该行的注释，如果存在则替换

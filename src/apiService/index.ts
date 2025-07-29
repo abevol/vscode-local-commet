@@ -14,6 +14,7 @@ export const ApiRoutes = {
     comment: {
         uploadComments: `${BASE_URL}/comments`, // 上传注释
         importComments: `${BASE_URL}/comments/me`, // 导入注释
+        getSharedComments: (comment_shared_id: string) => `${BASE_URL}/comment-shared/${comment_shared_id}`, // 获取共享注释
     },
     project: {
         getMyProject: `${BASE_URL}/projects/me`, // 获取当前用户所属的项目信息
@@ -276,7 +277,16 @@ try {
     console.error('登录失败:', error.message);
 }
 
-// 4. 带重试的请求 - 使用预定义的路由
+// 4. 带参数的GET请求 - 使用函数式路由
+try {
+    const commentId = '12345';
+    const sharedComments = await apiService.get(ApiRoutes.comment.getSharedComments(commentId));
+    console.log('获取共享注释成功:', sharedComments);
+} catch (error) {
+    console.error('获取共享注释失败:', error.message);
+}
+
+// 5. 带重试的请求 - 使用预定义的路由
 try {
     const projects = await apiService.get(ApiRoutes.project.getMyProject, { 
         retryCount: 3, 
@@ -295,4 +305,5 @@ try {
 - 支持跳过认证的请求
 - 单例模式，全局共享
 - 使用预定义的API路由，避免硬编码URL
+- 函数式路由支持动态参数
 */ 
