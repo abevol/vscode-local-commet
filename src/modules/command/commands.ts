@@ -13,6 +13,9 @@ import { ProjectManager } from '../../managers/projectManager';
 import { normalizeFilePath, normalizeFileComments, buildExportData } from '../../utils/utils';
 import { registerCommentCommands } from './comment';
 import { registerBookmarkCommands } from './bookmark';
+import { AuthWebview } from '../authWebview';
+import { UserInfoWebview } from '../userInfoWebview';
+import { apiService } from '../../apiService';
 
 export function registerCommands(
     context: vscode.ExtensionContext,
@@ -395,7 +398,7 @@ export function registerCommands(
     // 处理云端上传
     async function handleCloudUpload(projectInfo: any, allComments: any, totalComments: number, authManager?: any) {
         // 检查用户是否已登录
-        if (!authManager || !authManager.isLoggedIn()) {
+                if (!authManager || !authManager.isLoggedIn()) {
             const loginChoice = await vscode.window.showWarningMessage(
                 '上传到云端需要先登录账户',
                 '立即登录', '取消'
@@ -403,8 +406,7 @@ export function registerCommands(
             
             if (loginChoice === '立即登录') {
                 // 显示登录界面
-                const { AuthWebview } = require('./authWebview');
-                AuthWebview.createOrShow(context, authManager);
+                AuthWebview.createOrShow(context.extensionUri, authManager);
                 return;
             } else {
                 return; // 用户取消
@@ -416,21 +418,20 @@ export function registerCommands(
         
         // 获取关联的项目ID
         const associatedProjectId = projectManager.getAssociatedProject();
-        if (!associatedProjectId) {
-            const associateChoice = await vscode.window.showWarningMessage(
-                '当前项目未关联云端项目，需要先关联项目才能上传',
-                '关联项目', '取消'
-            );
-            
-            if (associateChoice === '关联项目') {
-                // 显示用户信息面板，让用户关联项目
-                const { UserInfoWebview } = require('./userInfoWebview');
-                UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
-                return;
-            } else {
-                return; // 用户取消
+                    if (!associatedProjectId) {
+                const associateChoice = await vscode.window.showWarningMessage(
+                    '当前项目未关联云端项目，需要先关联项目才能上传',
+                    '关联项目', '取消'
+                );
+                
+                if (associateChoice === '关联项目') {
+                    // 显示用户信息面板，让用户关联项目
+                    UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+                    return;
+                } else {
+                    return; // 用户取消
+                }
             }
-        }
 
         // 显示上传进度
         vscode.window.withProgress({
@@ -511,6 +512,48 @@ export function registerCommands(
 
     // 导入注释数据命令
     const importCommentsCommand = vscode.commands.registerCommand('localComment.importComments', async () => {
+        try {
+            // 让用户选择导入方式
+            const importOptions = [
+                {
+                    label: '$(file) 从本地文件导入',
+                    description: '从本地JSON文件导入注释数据',
+                    detail: '选择本地保存的注释数据文件',
+                    value: 'local'
+                },
+                {
+                    label: '$(cloud-download) 从服务端导入',
+                    description: '从云端服务器下载注释数据',
+                    detail: '需要登录账户，从云端项目下载注释数据',
+                    value: 'cloud'
+                }
+            ];
+
+            const selectedOption = await vscode.window.showQuickPick(importOptions, {
+                placeHolder: '选择导入方式',
+                ignoreFocusOut: true
+            });
+
+            if (!selectedOption) {
+                return; // 用户取消了操作
+            }
+
+            if (selectedOption.value === 'local') {
+                // 本地文件导入流程
+                await handleLocalImport();
+            } else if (selectedOption.value === 'cloud') {
+                // 服务端导入流程
+                await handleCloudImport(authManager);
+            }
+
+        } catch (error) {
+            console.error('导入注释数据时发生错误:', error);
+            vscode.window.showErrorMessage(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    });
+
+    // 处理本地文件导入
+    async function handleLocalImport() {
         try {
             // 让用户选择导入文件
             const openUri = await vscode.window.showOpenDialog({
@@ -680,7 +723,207 @@ export function registerCommands(
             console.error('导入注释数据时发生错误:', error);
             vscode.window.showErrorMessage(`导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
         }
-    });
+    }
+
+    // 处理服务端导入
+    async function handleCloudImport(authManager?: any) {
+        try {
+            // 检查用户是否已登录
+            if (!authManager || !authManager.isLoggedIn()) {
+                const loginChoice = await vscode.window.showWarningMessage(
+                    '从服务端导入需要先登录账户',
+                    '立即登录', '取消'
+                );
+                
+                if (loginChoice === '立即登录') {
+                    // 显示登录界面
+                    AuthWebview.createOrShow(context.extensionUri, authManager);
+                    return;
+                } else {
+                    return; // 用户取消
+                }
+            }
+
+            // 获取项目管理器实例
+            const projectManager = new ProjectManager(context);
+            
+            // 获取关联的项目ID
+            const associatedProjectId = projectManager.getAssociatedProject();
+            if (!associatedProjectId) {
+                const associateChoice = await vscode.window.showWarningMessage(
+                    '当前项目未关联云端项目，需要先关联项目才能导入',
+                    '关联项目', '取消'
+                );
+                
+                if (associateChoice === '关联项目') {
+                    // 显示用户信息面板，让用户关联项目
+                    UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+                    return;
+                } else {
+                    return; // 用户取消
+                }
+            }
+
+            // 显示下载进度
+            vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: '正在从服务端下载注释数据...',
+                cancellable: false
+            }, async (progress) => {
+                try {
+                    progress.report({ increment: 0, message: '连接服务端...' });
+
+                    // 调用API获取注释数据
+                    const response = await apiService.get(ApiRoutes.comment.importComments);
+                    
+                    progress.report({ increment: 30, message: '数据下载完成，正在处理...' });
+
+                    // 过滤出当前项目关联的注释数据
+                    const projectComments = response.filter((item: any) => 
+                        item.project_id === parseInt(associatedProjectId)
+                    );
+
+                    if (projectComments.length === 0) {
+                        vscode.window.showWarningMessage('当前项目在服务端没有找到注释数据');
+                        return;
+                    }
+
+                    progress.report({ increment: 50, message: '数据过滤完成，正在转换格式...' });
+
+                    // 提取注释数据（取最新的一个）
+                    const latestComment = projectComments[projectComments.length - 1];
+                    const commentData = latestComment.content;
+
+                    // 验证数据格式
+                    if (!commentData || !commentData.comments) {
+                        throw new Error('服务端返回的注释数据格式不正确');
+                    }
+
+                    // 显示导入预览信息
+                    const previewMessage = `导入预览:\n\n` +
+                        `源项目: ${commentData.projectInfo?.name || '未知项目'}\n` +
+                        `目标项目: ${commentManager.getProjectInfo().name}\n` +
+                        `导出时间: ${commentData.exportTime || '未知时间'}\n` +
+                        `文件数量: ${commentData.metadata?.totalFiles || 0} 个\n` +
+                        `注释数量: ${commentData.metadata?.totalComments || 0} 条\n\n` +
+                        `请选择导入模式:`;
+
+                    const importOptions = [
+                        {
+                            label: '合并导入',
+                            description: '将导入的注释与现有注释合并',
+                            detail: '如果存在相同ID的注释将跳过，保留现有数据',
+                            mode: 'merge'
+                        },
+                        {
+                            label: '替换导入',
+                            description: '用导入的注释替换所有现有注释',
+                            detail: '警告：这将删除当前项目的所有注释数据',
+                            mode: 'replace'
+                        }
+                    ];
+
+                    progress.report({ increment: 70, message: '格式转换完成，等待用户确认...' });
+
+                    // 让用户选择导入模式
+                    const importMode = await vscode.window.showQuickPick(importOptions, {
+                        placeHolder: '选择导入方式',
+                        ignoreFocusOut: true
+                    });
+
+                    if (!importMode) {
+                        return; // 用户取消了操作
+                    }
+
+                    // 如果是替换模式，再次确认
+                    if (importMode.mode === 'replace') {
+                        const confirm = await vscode.window.showWarningMessage(
+                            '确定要替换所有现有注释数据吗？\n\n此操作将删除当前项目的所有注释，且不可恢复！',
+                            { modal: true },
+                            '确定替换', '取消'
+                        );
+                        
+                        if (confirm !== '确定替换') {
+                            return;
+                        }
+                    }
+
+                    progress.report({ increment: 80, message: '正在导入注释数据...' });
+
+                    // 将服务端数据转换为临时文件格式
+                    const tempData = {
+                        version: commentData.version,
+                        exportTime: commentData.exportTime,
+                        projectInfo: commentData.projectInfo,
+                        comments: commentData.comments,
+                        metadata: commentData.metadata
+                    };
+
+                    // 创建临时文件路径
+                    const tempDir = require('os').tmpdir();
+                    const tempFile = require('path').join(tempDir, `temp-comments-${Date.now()}.json`);
+
+                    // 写入临时文件
+                    require('fs').writeFileSync(tempFile, JSON.stringify(tempData, null, 2));
+
+                    try {
+                        // 使用现有的导入逻辑处理数据
+                        const result = await commentManager.importComments(
+                            tempFile,
+                            importMode.mode as 'merge' | 'replace'
+                        );
+
+                        // 删除临时文件
+                        require('fs').unlinkSync(tempFile);
+
+                        progress.report({ increment: 100, message: '导入完成！' });
+
+                        if (result.success) {
+                            // 刷新界面
+                            tagManager.updateTags(commentManager.getAllComments());
+                            commentProvider.refresh();
+                            commentTreeProvider.refresh();
+
+                            // 构建成功消息
+                            let successMessage = result.message;
+                            if (result.remappedFiles && result.remappedFiles > 0) {
+                                successMessage += `\n 已重映射 ${result.remappedFiles} 个文件的路径`;
+                            }
+                            
+                            // 显示成功消息
+                            vscode.window.showInformationMessage(
+                                `${successMessage}`,
+                                '查看注释列表', '显示统计'
+                            ).then(selection => {
+                                if (selection === '查看注释列表') {
+                                    vscode.commands.executeCommand('workbench.view.explorer');
+                                } else if (selection === '显示统计') {
+                                    vscode.commands.executeCommand('localComment.showStorageStats');
+                                }
+                            });
+                        } else {
+                            vscode.window.showErrorMessage(result.message);
+                        }
+
+                    } catch (importError) {
+                        // 确保删除临时文件
+                        if (require('fs').existsSync(tempFile)) {
+                            require('fs').unlinkSync(tempFile);
+                        }
+                        throw importError;
+                    }
+
+                } catch (error) {
+                    console.error('服务端导入失败:', error);
+                    vscode.window.showErrorMessage(`服务端导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
+                }
+            });
+            
+        } catch (error) {
+            console.error('服务端导入失败:', error);
+            vscode.window.showErrorMessage(`服务端导入失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    }
 
 
 
