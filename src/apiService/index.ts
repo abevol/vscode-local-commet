@@ -13,6 +13,7 @@ export const ApiRoutes = {
     },
     comment: {
         uploadComments: `${BASE_URL}/comments`, // 上传注释
+        importComments: `${BASE_URL}/comments/me`, // 导入注释
     },
     project: {
         getMyProject: `${BASE_URL}/projects/me`, // 获取当前用户所属的项目信息

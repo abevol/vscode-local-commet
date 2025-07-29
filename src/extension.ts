@@ -10,7 +10,7 @@ import { BookmarkManager } from './managers/bookmarkManager';
 import { BookmarkDecorationProvider } from './providers/bookmarkDecorationProvider';
 import * as path from 'path';
 import * as fs from 'fs';
-import { registerCommands } from './modules/commands';
+import { registerCommands } from './modules/command/commands';
 import { AuthManager } from './managers/authManager';
 import { ProjectManager } from './managers/projectManager';
 import { UserInfoWebview } from './modules/userInfoWebview';

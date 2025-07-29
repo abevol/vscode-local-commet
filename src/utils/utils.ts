@@ -27,40 +27,33 @@ export async function createDataUri(context: vscode.ExtensionContext, filePath: 
  * @returns 标准化后的文件路径
  */
 export function normalizeFilePath(filePath: string): string {
-    // 将路径分隔符统一为正斜杠
-    let normalizedPath = filePath.replace(/\\/g, '/');
-    
-    // 移除驱动器盘符（Windows特有）
-    if (normalizedPath.match(/^[a-zA-Z]:/)) {
-        normalizedPath = normalizedPath.substring(2);
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        let normalizedPath = filePath.replace(/\\/g, '/');
+        if (normalizedPath.match(/^[a-zA-Z]:/)) {
+            normalizedPath = normalizedPath.substring(2);
+        }
+        if (!normalizedPath.startsWith('/')) {
+            normalizedPath = '/' + normalizedPath;
+        }
+        return normalizedPath;
     }
-    
-    // 确保路径以正斜杠开头（相对路径）
-    if (!normalizedPath.startsWith('/')) {
-        normalizedPath = '/' + normalizedPath;
-    }
-    
-    return normalizedPath;
+    const rootPath = workspaceFolder.uri.fsPath;
+    const relativePath = path.relative(rootPath, filePath);
+    return relativePath.replace(/\\/g, '/');
 }
 
 /**
- * 将标准化的路径转换为当前系统的路径格式
- * 用于将跨平台的标准路径转换回当前操作系统的路径格式
- * @param normalizedPath 标准化路径
- * @param basePath 基础路径（可选），用于构建完整路径
- * @returns 当前系统格式的路径
+ * 将相对路径转换为绝对路径
+ * @param relativePath 相对路径
+ * @returns 绝对路径
  */
-export function denormalizeFilePath(normalizedPath: string, basePath?: string): string {
-    // 移除开头的正斜杠
-    let denormalizedPath = normalizedPath.startsWith('/') ? normalizedPath.substring(1) : normalizedPath;
-    
-    // 如果有基础路径，则拼接
-    if (basePath) {
-        denormalizedPath = path.join(basePath, denormalizedPath);
+export function toAbsolutePath(relativePath: string): string {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return path.resolve(relativePath);
     }
-    
-    // 转换为当前系统的路径格式
-    return path.resolve(denormalizedPath);
+    return path.join(workspaceFolder.uri.fsPath, relativePath);
 }
 
 /**
@@ -76,4 +69,31 @@ export function normalizeFileComments(fileComments: { [filePath: string]: any[] 
         normalizedComments[normalizedPath] = comments;
     }
     return normalizedComments;
+}
+
+/**
+ * 构建标准化的注释导出数据
+ * 统一本地导出和云端上传的数据格式
+ * @param projectInfo 项目信息
+ * @param allComments 所有注释数据
+ * @param totalComments 注释总数
+ * @returns 标准化的导出数据
+ */
+export function buildExportData(projectInfo: any, allComments: any, totalComments: number) {
+    // 标准化注释数据中的文件路径
+    const normalizedComments = normalizeFileComments(allComments);
+    
+    return {
+        version: '1.0.0',
+        exportTime: new Date().toISOString(),
+        projectInfo: {
+            name: projectInfo.name,
+            path: normalizeFilePath(projectInfo.path)
+        },
+        comments: normalizedComments,
+        metadata: {
+            totalFiles: Object.keys(allComments).length,
+            totalComments: totalComments
+        }
+    };
 }
