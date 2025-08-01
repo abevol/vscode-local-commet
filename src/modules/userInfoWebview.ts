@@ -131,6 +131,9 @@ export class UserInfoWebview {
                     case 'disassociateProject':
                         this.handleDisassociateProject(message.projectId);
                         return;
+                    case 'fetchSharedComments':
+                        this.handleFetchSharedComments();
+                        return;
                     case 'close':
                         this.dispose();
                         return;
@@ -169,19 +172,11 @@ export class UserInfoWebview {
 
             // 获取用户信息
             const user = this._authManager.getCurrentUser();
-            if (!user) {
-                this._panel.webview.postMessage({
-                    command: 'userInfoResult',
-                    success: false,
-                    message: '无法获取用户信息'
-                });
-                return;
-            }
-
-            // 获取统计信息
+            
+            // 获取使用统计
             const stats = this.getUsageStats();
-
-            // 发送用户信息到webview
+            
+            // 发送用户信息和统计信息到webview
             this._panel.webview.postMessage({
                 command: 'userInfoResult',
                 success: true,
@@ -195,7 +190,74 @@ export class UserInfoWebview {
             this._panel.webview.postMessage({
                 command: 'userInfoResult',
                 success: false,
-                message: '获取用户信息时发生错误: ' + (error as Error).message
+                message: '获取用户信息失败: ' + (error as Error).message
+            });
+        }
+    }
+
+    /**
+     * 处理获取项目共享注释命令
+     */
+    private async handleFetchSharedComments() {
+        try {
+            // 检查用户是否已登录
+            if (!this._authManager.isLoggedIn()) {
+                this._panel.webview.postMessage({
+                    command: 'fetchSharedCommentsResult',
+                    success: false,
+                    message: '用户未登录'
+                });
+                return;
+            }
+
+            // 检查是否有关联的项目
+            const associatedProjectId = this._projectManager.getAssociatedProject();
+            if (!associatedProjectId) {
+                this._panel.webview.postMessage({
+                    command: 'fetchSharedCommentsResult',
+                    success: false,
+                    message: '请先关联项目'
+                });
+                return;
+            }
+
+            // 获取项目共享注释
+            const projectId = parseInt(associatedProjectId, 10);
+            if (isNaN(projectId)) {
+                this._panel.webview.postMessage({
+                    command: 'fetchSharedCommentsResult',
+                    success: false,
+                    message: '项目ID无效'
+                });
+                return;
+            }
+
+            // 调用CommentManager获取共享注释
+            if (this._commentManager) {
+                const sharedComments = await this._commentManager.getProjectSharedComments(projectId);
+                
+                this._panel.webview.postMessage({
+                    command: 'fetchSharedCommentsResult',
+                    success: true,
+                    message: `成功获取 ${sharedComments?.length || 0} 条共享注释`,
+                    data: sharedComments // 返回获取到的共享注释数据
+                });
+                
+                // 可以在这里添加进一步处理共享注释的逻辑
+                // 比如显示通知或更新UI
+            } else {
+                this._panel.webview.postMessage({
+                    command: 'fetchSharedCommentsResult',
+                    success: false,
+                    message: '注释管理器未初始化'
+                });
+            }
+        } catch (error) {
+            console.error('获取项目共享注释失败:', error);
+            this._panel.webview.postMessage({
+                command: 'fetchSharedCommentsResult',
+                success: false,
+                message: '获取项目共享注释失败: ' + (error as Error).message
             });
         }
     }

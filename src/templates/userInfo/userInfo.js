@@ -28,6 +28,11 @@ const projectsErrorEl = document.getElementById('projects-error');
 const projectsErrorTextEl = document.getElementById('projects-error-text');
 const retryProjectsBtn = document.getElementById('retry-projects-btn');
 
+// 获取共享注释元素
+const fetchSharedCommentsEl = document.getElementById('fetch-shared-comments');
+const fetchSharedBtn = document.getElementById('fetch-shared-btn');
+const fetchSharedStatusEl = document.getElementById('fetch-shared-status');
+
 // 统计信息元素
 const commentsCountEl = document.getElementById('comments-count');
 const bookmarksCountEl = document.getElementById('bookmarks-count');
@@ -79,6 +84,13 @@ function setupEventListeners() {
     
     retryProjectsBtn.addEventListener('click', () => {
         requestProjects();
+    });
+    
+    // 获取共享注释按钮事件
+    fetchSharedBtn.addEventListener('click', () => {
+        vscode.postMessage({
+            command: 'fetchSharedComments'
+        });
     });
 }
 
@@ -178,6 +190,13 @@ function showProjectsList(projects, associatedProjectId) {
     projectsErrorEl.style.display = 'none';
     
     populateProjectsList(projects, associatedProjectId);
+    
+    // 如果有已关联的项目，显示获取共享注释按钮
+    if (associatedProjectId) {
+        fetchSharedCommentsEl.style.display = 'block';
+    } else {
+        fetchSharedCommentsEl.style.display = 'none';
+    }
 }
 
 // 显示项目为空
@@ -186,6 +205,7 @@ function showProjectsEmpty() {
     projectsListEl.style.display = 'none';
     projectsEmptyEl.style.display = 'block';
     projectsErrorEl.style.display = 'none';
+    fetchSharedCommentsEl.style.display = 'none';
 }
 
 // 显示项目错误
@@ -195,6 +215,18 @@ function showProjectsError(message) {
     projectsEmptyEl.style.display = 'none';
     projectsErrorEl.style.display = 'block';
     projectsErrorTextEl.textContent = message || '加载项目失败';
+    fetchSharedCommentsEl.style.display = 'none';
+}
+
+// 显示获取共享注释的状态
+function showFetchSharedStatus(show) {
+    if (show) {
+        fetchSharedBtn.style.display = 'none';
+        fetchSharedStatusEl.style.display = 'flex';
+    } else {
+        fetchSharedBtn.style.display = 'block';
+        fetchSharedStatusEl.style.display = 'none';
+    }
 }
 
 // 填充项目列表
@@ -379,7 +411,7 @@ window.addEventListener('message', event => {
             if (btn) {
                 const projectItem = btn.closest('.project-item');
                 if (message.success) {
-                    // 延迟更新按钮状态，让用户看到"关联中..."的状态
+                    // 添加短暂延迟，改善用户体验
                     setTimeout(() => {
                         btn.textContent = '已关联';
                         btn.disabled = false;
@@ -389,9 +421,10 @@ window.addEventListener('message', event => {
                         if (projectItem) {
                             projectItem.classList.add('associated');
                         }
-                    }, ANIMATION_DELAY); // 使用常量定义的延迟时间
+                        // 显示获取共享注释按钮
+                        fetchSharedCommentsEl.style.display = 'block';
+                    }, 300);
                 } else {
-                    // 失败时立即恢复状态
                     btn.textContent = '关联';
                     btn.disabled = false;
                     btn.dataset.associated = 'false';
@@ -400,6 +433,8 @@ window.addEventListener('message', event => {
                     if (projectItem) {
                         projectItem.classList.remove('associated');
                     }
+                    // 隐藏获取共享注释按钮
+                    fetchSharedCommentsEl.style.display = 'none';
                     // 显示错误信息（如果有的话）
                     if (message.message) {
                         console.error('关联失败:', message.message);
@@ -410,29 +445,23 @@ window.addEventListener('message', event => {
         case 'disassociateProjectResult':
             const disassociateBtn = document.querySelector(`.btn[data-project-id="${message.projectId}"]`);
             if (disassociateBtn) {
-                const projectItem = disassociateBtn.closest('.project-item');
                 if (message.success) {
-                    // 延迟更新按钮状态，让用户看到"取消关联中..."的状态
-                    setTimeout(() => {
-                        disassociateBtn.textContent = '关联';
-                        disassociateBtn.disabled = false;
-                        disassociateBtn.dataset.associated = 'false';
-                        disassociateBtn.className = 'btn btn-primary btn-sm';
-                        // 移除高亮显示类
-                        if (projectItem) {
-                            projectItem.classList.remove('associated');
-                        }
-                    }, ANIMATION_DELAY); // 使用常量定义的延迟时间
+                    disassociateBtn.textContent = '关联';
+                    disassociateBtn.disabled = false;
+                    disassociateBtn.dataset.associated = 'false';
+                    disassociateBtn.className = 'btn btn-primary btn-sm';
+                    // 移除高亮显示类
+                    const projectItem = disassociateBtn.closest('.project-item');
+                    if (projectItem) {
+                        projectItem.classList.remove('associated');
+                    }
+                    // 隐藏获取共享注释按钮
+                    fetchSharedCommentsEl.style.display = 'none';
                 } else {
-                    // 失败时立即恢复状态
                     disassociateBtn.textContent = '已关联';
                     disassociateBtn.disabled = false;
                     disassociateBtn.dataset.associated = 'true';
                     disassociateBtn.className = 'btn btn-secondary btn-sm';
-                    // 添加高亮显示类
-                    if (projectItem) {
-                        projectItem.classList.add('associated');
-                    }
                     // 显示错误信息（如果有的话）
                     if (message.message) {
                         console.error('取消关联失败:', message.message);
@@ -440,18 +469,32 @@ window.addEventListener('message', event => {
                 }
             }
             break;
-        case 'logoutResult':
-            // 重置退出登录按钮状态
-            resetLogoutButton();
-            
+        case 'fetchSharedCommentsResult':
+            // 处理获取共享注释的结果
+            showFetchSharedStatus(false);
             if (message.success) {
-                // 关闭webview或返回登录界面
-                vscode.postMessage({
-                    command: 'close'
-                });
+                // 显示成功消息
+                alert(message.message || '获取共享注释成功');
+                
+                // 如果有返回数据，可以进一步处理
+                if (message.data && Array.isArray(message.data)) {
+                    console.log('获取到的共享注释:', message.data);
+                    // 这里可以添加处理共享注释的逻辑
+                    // 例如：更新UI显示共享注释数量等
+                }
             } else {
-                // 显示退出登录失败的错误消息
-                showError(message.message || '退出登录失败');
+                // 显示错误消息
+                alert('获取共享注释失败: ' + (message.message || '未知错误'));
+            }
+            break;
+        case 'logoutResult':
+            if (message.success) {
+                // 退出登录成功，关闭面板
+                window.close();
+            } else {
+                // 退出登录失败，重置按钮状态
+                resetLogoutButton();
+                alert('退出登录失败: ' + message.message);
             }
             break;
     }

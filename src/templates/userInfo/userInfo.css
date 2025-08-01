@@ -179,22 +179,7 @@ body {
     font-weight: 500;
 }
 
-/* 项目信息 */
-.projects-loading {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 30px 20px;
-    color: var(--vscode-descriptionForeground);
-    gap: 12px;
-}
-
-.spinner.small {
-    width: 20px;
-    height: 20px;
-    border-width: 2px;
-}
-
+/* 项目列表样式 */
 .projects-list {
     display: flex;
     flex-direction: column;
@@ -203,31 +188,28 @@ body {
 
 .project-item {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 16px;
-    background: var(--vscode-list-hoverBackground);
-    border-radius: 6px;
-    border: 1px solid var(--vscode-panel-border);
+    align-items: center;
+    padding: 12px;
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 4px;
+    background-color: var(--vscode-editor-background);
     transition: all 0.2s ease;
-    gap: 16px;
 }
 
 .project-item:hover {
-    background: var(--vscode-list-activeSelectionBackground);
     border-color: var(--vscode-focusBorder);
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    background-color: var(--vscode-list-hoverBackground);
 }
 
 .project-item.associated {
-    border-color: var(--vscode-button-background);
-    box-shadow: 0 0 0 1px var(--vscode-button-background);
+    border-color: var(--vscode-inputValidation-infoBorder);
+    background-color: var(--vscode-editor-background);
 }
 
 .project-item.associated:hover {
-    border-color: var(--vscode-button-hoverBackground);
-    box-shadow: 0 0 0 1px var(--vscode-button-hoverBackground), 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-color: var(--vscode-inputValidation-infoBorder);
+    background-color: color-mix(in srgb, var(--vscode-inputValidation-infoBorder) 10%, transparent);
 }
 
 .project-info-wrapper {
@@ -239,7 +221,7 @@ body {
 
 .project-icon {
     margin-right: 12px;
-    color: var(--vscode-symbolIcon-folderForeground);
+    color: var(--vscode-foreground);
     flex-shrink: 0;
 }
 
@@ -249,19 +231,17 @@ body {
 }
 
 .project-name {
-    margin: 0 0 4px 0;
-    font-size: 14px;
     font-weight: 600;
-    color: var(--vscode-editor-foreground);
+    margin-bottom: 4px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .project-description {
-    margin: 0;
     font-size: 12px;
     color: var(--vscode-descriptionForeground);
+    margin-bottom: 6px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -269,62 +249,109 @@ body {
 
 .project-meta {
     display: flex;
-    align-items: center;
     gap: 8px;
-    margin-top: 4px;
+    font-size: 11px;
 }
 
 .project-role {
-    font-size: 11px;
     padding: 2px 6px;
     border-radius: 3px;
-    background: var(--vscode-button-background);
-    color: var(--vscode-button-foreground);
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
     font-weight: 500;
 }
 
 .project-role.owner {
-    background: var(--vscode-errorForeground);
-    color: white;
+    background-color: var(--vscode-inputValidation-infoBackground);
 }
 
-.project-role.member {
-    background: var(--vscode-button-secondaryBackground);
-    color: var(--vscode-button-secondaryForeground);
+.project-role.admin {
+    background-color: var(--vscode-inputValidation-warningBackground);
 }
 
 .project-members {
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-    opacity: 0.8;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    padding: 2px 6px;
+    border-radius: 3px;
 }
 
-.projects-empty, .projects-error {
+.project-actions {
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.project-actions .btn {
+    min-width: 60px;
+    height: 28px;
+    padding: 0 12px;
+    font-size: 12px;
+}
+
+/* 获取共享注释按钮样式 */
+.fetch-shared-comments {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 15px;
+    border: 1px solid var(--vscode-editorGroup-border);
+    border-radius: 4px;
+    background-color: var(--vscode-editor-background);
+}
+
+.fetch-shared-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+}
+
+.fetch-shared-status .spinner.small {
+    width: 16px;
+    height: 16px;
+    border-width: 2px;
+}
+
+/* 空状态样式 */
+.projects-empty,
+.projects-error {
     text-align: center;
-    padding: 40px 20px;
-    color: var(--vscode-descriptionForeground);
+    padding: 32px 0;
 }
 
-.empty-icon, .error-icon {
+.empty-icon,
+.error-icon {
     margin-bottom: 16px;
     color: var(--vscode-descriptionForeground);
-    opacity: 0.6;
 }
 
-.projects-empty p, .projects-error p {
+.projects-empty p,
+.projects-error p {
     margin: 0 0 8px 0;
-    font-size: 16px;
     font-weight: 500;
-    color: var(--vscode-editor-foreground);
 }
 
-.projects-empty small {
+.projects-empty small,
+.projects-error small {
+    color: var(--vscode-descriptionForeground);
     font-size: 12px;
-    opacity: 0.7;
 }
 
-.projects-error .btn {
-    margin-top: 12px;
+/* 项目加载状态样式 */
+.projects-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 32px 0;
+    color: var(--vscode-descriptionForeground);
+}
+
+.projects-loading .spinner.small {
+    width: 20px;
+    height: 20px;
+    border-width: 2px;
 }
 
 /* 统计信息 */

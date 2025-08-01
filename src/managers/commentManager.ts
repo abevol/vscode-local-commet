@@ -4,6 +4,7 @@ import * as path from 'path';
 import * as crypto from 'crypto';
 import { CommentMatcher } from './commentMatcher';
 import { normalizeFilePath, toAbsolutePath, normalizeFileComments, buildExportData } from '../utils/utils';
+import { apiService, ApiRoutes } from '../apiService';
 
 export interface LocalComment {
     id: string;
@@ -14,6 +15,24 @@ export interface LocalComment {
     lineContent: string; // 该行的内容，用于智能定位和作为代码快照
     isMatched?: boolean; // 标记注释是否匹配到代码
     isShared?: boolean; // 标记注释是否是共享的
+}
+
+export interface SharedComment extends LocalComment {
+    userId: string; // 用户ID
+    userAvatar?: string; // 用户头像URL
+    username?: string; // 用户名
+}
+
+// 项目共享注释的接口
+export interface ProjectSharedComment {
+    content: LocalComment; // 注释内容（LocalComment结构）
+    file_path: string; // 文件路径
+    project_id: number; // 项目ID
+    is_public: boolean; // 是否公开
+    id: number; // 注释ID
+    user_id: number; // 用户ID
+    created_at: string; // 创建时间
+    updated_at: string; // 更新时间
 }
 
 export interface FileComments {
@@ -1057,6 +1076,44 @@ export class CommentManager {
                 valid: false,
                 message: `文件解析失败: ${error instanceof Error ? error.message : '未知错误'}`
             };
+        }
+    }
+
+    /**
+     * 从服务器获取共享注释
+     * @param sharedId 共享注释的ID
+     * @returns 共享注释的Promise
+     */
+    public async getSharedComment(sharedId: string): Promise<SharedComment | null> {
+        try {
+            const response = await apiService.get<SharedComment>(
+                ApiRoutes.comment.getSharedComments(sharedId)
+            );
+            
+            return response;
+        } catch (error) {
+            console.error('获取共享注释失败:', error);
+            vscode.window.showErrorMessage(`获取共享注释失败: ${error}`);
+            return null;
+        }
+    }
+
+    /**
+     * 获取项目中的所有共享注释
+     * @param projectId 项目ID
+     * @returns 项目共享注释数组的Promise
+     */
+    public async getProjectSharedComments(projectId: number): Promise<ProjectSharedComment[] | null> {
+        try {
+            const response = await apiService.get<ProjectSharedComment[]>(
+                ApiRoutes.comment.getProjectSharedComments(projectId)
+            );
+            
+            return response;
+        } catch (error) {
+            console.error('获取项目共享注释失败:', error);
+            vscode.window.showErrorMessage(`获取项目共享注释失败: ${error}`);
+            return null;
         }
     }
 }
