@@ -173,6 +173,8 @@
         <div class="modal-content">
             <h3>更换头像</h3>
             <p>请选择一张图片作为您的头像</p>
+            
+            <!-- 上传区域 -->
             <div class="upload-area" id="upload-area">
                 <div class="upload-placeholder" id="upload-placeholder">
                     <svg width="48" height="48" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -180,23 +182,42 @@
                         <path d="M7 10L12 15L17 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         <path d="M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
-                    <p>点击或拖拽图片到此处</p>
+                    <p>选择图片文件</p>
                     <small>支持 JPG、PNG 格式，文件大小不超过 2MB</small>
+                    <button id="select-image-btn" class="btn btn-primary" style="margin-top: 15px;">选择图片</button>
                 </div>
+                
+                <!-- 预览和裁剪区域 -->
                 <div class="preview-container" id="preview-container" style="display: none;">
-                    <img id="preview-image" class="preview-image" alt="预览图片">
+                    <div class="crop-container" id="crop-container">
+                        <img id="preview-image" class="preview-image" alt="预览图片">
+                        <div class="crop-overlay" id="crop-overlay">
+                            <div class="crop-box" id="crop-box">
+                                <div class="crop-handle crop-handle-nw"></div>
+                                <div class="crop-handle crop-handle-ne"></div>
+                                <div class="crop-handle crop-handle-sw"></div>
+                                <div class="crop-handle crop-handle-se"></div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
+            
+            <!-- 裁剪操作按钮 -->
+            <div class="crop-actions" id="crop-actions" style="display: none;">
+                <button id="crop-confirm-btn" class="btn btn-primary">确认裁剪</button>
+                <button id="crop-cancel-btn" class="btn btn-secondary">重新选择</button>
+            </div>
+            
             <input type="file" id="avatar-file-input" accept="image/*" style="display: none;">
+            
+            <!-- 模态框底部按钮 -->
             <div class="modal-buttons">
                 <button id="upload-confirm-btn" class="btn btn-primary" disabled>确定上传</button>
                 <button id="upload-cancel-btn" class="btn btn-secondary">取消</button>
             </div>
         </div>
     </div>
-    
-    <!-- 隐藏的文件输入元素 -->
-    <input type="file" id="avatar-file-input" accept="image/*" style="display: none;">
     
     <script nonce="${nonce}" src="${jsUri}"></script>
 </body>

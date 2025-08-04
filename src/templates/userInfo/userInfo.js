@@ -59,45 +59,52 @@ const previewImageEl = document.getElementById('preview-image');
 const avatarFileInputEl = document.getElementById('avatar-file-input');
 const uploadConfirmBtn = document.getElementById('upload-confirm-btn');
 const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+const selectImageBtn = document.getElementById('select-image-btn');
+
+// 裁剪相关元素
+const cropContainerEl = document.getElementById('crop-container');
+const cropOverlayEl = document.getElementById('crop-overlay');
+const cropBoxEl = document.getElementById('crop-box');
+const cropConfirmBtn = document.getElementById('crop-confirm-btn');
+const cropCancelBtn = document.getElementById('crop-cancel-btn');
 
 // 文件上传状态
 let selectedFile = null;
+
+// 裁剪状态
+let cropState = {
+    isDragging: false,
+    isResizing: false,
+    startX: 0,
+    startY: 0,
+    startLeft: 0,
+    startTop: 0,
+    startWidth: 0,
+    startHeight: 0,
+    imageOffsetX: 0,
+    imageOffsetY: 0,
+    imageWidth: 0,
+    imageHeight: 0
+};
 
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     requestUserInfo();
     setupEventListeners();
     
-    // 测试预览功能
-    testPreviewFunction();
+    // 初始化裁剪框状态
+    if (cropOverlayEl) {
+        cropOverlayEl.style.display = 'none';
+    }
+    if (cropConfirmBtn) {
+        cropConfirmBtn.style.display = 'none';
+    }
+    if (cropCancelBtn) {
+        cropCancelBtn.style.display = 'none';
+    }
 });
 
-// 测试预览功能
-function testPreviewFunction() {
-    console.log('测试预览功能...');
-    console.log('预览容器元素:', previewContainerEl);
-    console.log('预览图片元素:', previewImageEl);
-    console.log('上传占位符元素:', uploadPlaceholderEl);
-    
-    // 检查元素是否存在
-    if (!previewContainerEl) {
-        console.error('预览容器元素不存在');
-    }
-    if (!previewImageEl) {
-        console.error('预览图片元素不存在');
-    }
-    if (!uploadPlaceholderEl) {
-        console.error('上传占位符元素不存在');
-    }
-    
-    // 测试预览显示
-    if (previewContainerEl && uploadPlaceholderEl) {
-        console.log('测试预览显示...');
-        uploadPlaceholderEl.style.display = 'none';
-        previewContainerEl.style.display = 'flex';
-        console.log('预览容器应该已显示');
-    }
-}
+
 
 // 设置事件监听器
 function setupEventListeners() {
@@ -142,7 +149,8 @@ function setupEventListeners() {
         showAvatarUploadModal();
     });
     
-    uploadAreaEl.addEventListener('click', () => {
+    // 选择图片按钮事件
+    selectImageBtn.addEventListener('click', () => {
         avatarFileInputEl.click();
     });
     
@@ -151,10 +159,13 @@ function setupEventListeners() {
     uploadConfirmBtn.addEventListener('click', handleAvatarUpload);
     uploadCancelBtn.addEventListener('click', hideAvatarUploadModal);
     
-    // 拖拽上传功能
-    uploadAreaEl.addEventListener('dragover', handleDragOver);
-    uploadAreaEl.addEventListener('dragleave', handleDragLeave);
-    uploadAreaEl.addEventListener('drop', handleDrop);
+    // 裁剪相关事件监听器
+    cropOverlayEl.addEventListener('mousedown', handleCropMouseDown);
+    document.addEventListener('mousemove', handleCropMouseMove);
+    document.addEventListener('mouseup', handleCropMouseUp);
+    
+    cropConfirmBtn.addEventListener('click', handleCropConfirm);
+    cropCancelBtn.addEventListener('click', handleCropCancel);
 }
 
 // 请求用户信息
@@ -581,7 +592,8 @@ window.addEventListener('message', event => {
 // 头像上传相关函数
 function showAvatarUploadModal() {
     avatarUploadModalEl.style.display = 'flex';
-    resetUploadState();
+    // 不在这里调用 resetUploadState，避免隐藏裁剪按钮
+    // 只在需要重置状态时才调用
 }
 
 function hideAvatarUploadModal() {
@@ -596,33 +608,9 @@ function handleFileSelect(event) {
     }
 }
 
-function handleDragOver(event) {
-    event.preventDefault();
-    uploadAreaEl.classList.add('dragover');
-}
 
-function handleDragLeave(event) {
-    event.preventDefault();
-    uploadAreaEl.classList.remove('dragover');
-}
-
-function handleDrop(event) {
-    event.preventDefault();
-    uploadAreaEl.classList.remove('dragover');
-    
-    const files = event.dataTransfer.files;
-    if (files.length > 0) {
-        validateAndPreviewFile(files[0]);
-    }
-}
 
 function validateAndPreviewFile(file) {
-    console.log('开始验证文件:', {
-        name: file.name,
-        type: file.type,
-        size: file.size
-    });
-    
     // 验证文件类型
     if (!file.type.startsWith('image/')) {
         console.error('请选择图片文件');
@@ -640,42 +628,46 @@ function validateAndPreviewFile(file) {
     // 预览图片
     const reader = new FileReader();
     reader.onload = function(e) {
-        console.log('文件读取成功，开始预览');
-        console.log('预览容器元素:', previewContainerEl);
-        console.log('预览图片元素:', previewImageEl);
-        console.log('上传占位符元素:', uploadPlaceholderEl);
-        
         try {
-            // 设置图片源
+            // 设置图片源（使用data URL）
             previewImageEl.src = e.target.result;
-            console.log('图片源设置完成:', e.target.result.substring(0, 50) + '...');
             
-            // 确保预览容器显示
-            if (previewContainerEl) {
-                previewContainerEl.style.display = 'flex';
-                console.log('预览容器已显示');
+            // 显示预览容器，隐藏占位符
+            previewContainerEl.style.display = 'flex';
+            uploadPlaceholderEl.style.display = 'none';
+            
+            // 显示裁剪界面，隐藏上传按钮
+            cropOverlayEl.style.display = 'block';
+            
+            // 显示裁剪操作按钮
+            const cropActionsEl = document.getElementById('crop-actions');
+            
+            if (cropActionsEl) {
+                cropActionsEl.style.display = 'flex';
             }
             
-            // 隐藏占位符
-            if (uploadPlaceholderEl) {
-                uploadPlaceholderEl.style.display = 'none';
-                console.log('占位符已隐藏');
+            // 确保裁剪确认和取消按钮可见
+            if (cropConfirmBtn) {
+                cropConfirmBtn.style.display = 'inline-flex';
+            }
+            if (cropCancelBtn) {
+                cropCancelBtn.style.display = 'inline-flex';
             }
             
-            // 启用上传按钮
-            uploadConfirmBtn.disabled = false;
+            uploadConfirmBtn.style.display = 'none';
             
-            console.log('预览功能完成');
+            // 重置裁剪状态
+            resetCropState();
+            
+            console.log('图片加载完成，准备设置裁剪框');
             
         } catch (error) {
-            console.error('预览过程中出错:', error);
             console.error('预览失败，请重新选择图片');
             resetUploadState();
         }
     };
     
     reader.onerror = function() {
-        console.error('文件读取失败');
         console.error('文件读取失败，请重新选择图片');
         resetUploadState();
     };
@@ -742,4 +734,301 @@ function resetUploadState() {
         uploadConfirmBtn.disabled = true;
         uploadConfirmBtn.textContent = '确定上传';
     }
+    
+    // 重置裁剪状态
+    resetCropState();
+    
+    // 隐藏裁剪操作按钮
+    const cropActionsEl = document.getElementById('crop-actions');
+    
+    if (cropActionsEl) {
+        cropActionsEl.style.display = 'none';
+    }
+    
+    // 隐藏裁剪确认和取消按钮
+    if (cropConfirmBtn) {
+        cropConfirmBtn.style.display = 'none';
+    }
+    if (cropCancelBtn) {
+        cropCancelBtn.style.display = 'none';
+    }
+}
+
+// 裁剪功能实现
+function resetCropState() {
+    cropState = {
+        isDragging: false,
+        isResizing: false,
+        startX: 0,
+        startY: 0,
+        startLeft: 0,
+        startTop: 0,
+        startWidth: 0,
+        startHeight: 0,
+        imageOffsetX: 0,
+        imageOffsetY: 0,
+        imageWidth: 0,
+        imageHeight: 0
+    };
+    
+    if (cropBoxEl && previewImageEl) {
+        // 等待图片加载完成后设置裁剪框位置
+        if (previewImageEl.complete) {
+            setCropBoxInitialPosition();
+        } else {
+            previewImageEl.onload = setCropBoxInitialPosition;
+        }
+    }
+    
+    if (previewImageEl) {
+        previewImageEl.style.transform = 'scale(1)';
+    }
+}
+
+function setCropBoxInitialPosition() {
+    if (!cropBoxEl || !previewImageEl || !cropContainerEl) return;
+    
+    // 获取图片在容器中的实际位置和大小
+    const imageRect = previewImageEl.getBoundingClientRect();
+    const containerRect = cropContainerEl.getBoundingClientRect();
+    
+    const imageOffsetX = imageRect.left - containerRect.left;
+    const imageOffsetY = imageRect.top - containerRect.top;
+    const imageWidth = imageRect.width;
+    const imageHeight = imageRect.height;
+    
+    // 设置裁剪框为正方形，居中显示在图片上
+    const size = Math.min(100, Math.min(imageWidth, imageHeight) * 0.8);
+    const left = imageOffsetX + (imageWidth - size) / 2;
+    const top = imageOffsetY + (imageHeight - size) / 2;
+    
+    cropBoxEl.style.left = left + 'px';
+    cropBoxEl.style.top = top + 'px';
+    cropBoxEl.style.width = size + 'px';
+    cropBoxEl.style.height = size + 'px';
+    cropBoxEl.style.position = 'absolute';
+    
+    // 更新cropState中的图片信息
+    cropState.imageOffsetX = imageOffsetX;
+    cropState.imageOffsetY = imageOffsetY;
+    cropState.imageWidth = imageWidth;
+    cropState.imageHeight = imageHeight;
+}
+
+function handleCropMouseDown(event) {
+    const target = event.target;
+    const cropBox = cropBoxEl.getBoundingClientRect();
+    const containerRect = cropContainerEl.getBoundingClientRect();
+    
+    cropState.startX = event.clientX;
+    cropState.startY = event.clientY;
+    cropState.startLeft = cropBox.left - containerRect.left;
+    cropState.startTop = cropBox.top - containerRect.top;
+    cropState.startWidth = cropBox.width;
+    cropState.startHeight = cropBox.height;
+    
+    // 计算图片在容器中的实际位置和大小
+    const imageRect = previewImageEl.getBoundingClientRect();
+    
+    cropState.imageOffsetX = imageRect.left - containerRect.left;
+    cropState.imageOffsetY = imageRect.top - containerRect.top;
+    cropState.imageWidth = imageRect.width;
+    cropState.imageHeight = imageRect.height;
+    
+    if (target.classList.contains('crop-handle')) {
+        cropState.isResizing = true;
+    } else if (target === cropBoxEl || cropBoxEl.contains(target)) {
+        cropState.isDragging = true;
+    }
+    
+    event.preventDefault();
+}
+
+function handleCropMouseMove(event) {
+    if (!cropState.isDragging && !cropState.isResizing) return;
+    
+    const containerRect = cropContainerEl.getBoundingClientRect();
+    const deltaX = event.clientX - cropState.startX;
+    const deltaY = event.clientY - cropState.startY;
+    
+    if (cropState.isDragging) {
+        // 拖拽裁剪框
+        let newLeft = cropState.startLeft + deltaX;
+        let newTop = cropState.startTop + deltaY;
+        
+        // 限制在图片区域内
+        const minLeft = cropState.imageOffsetX;
+        const maxLeft = cropState.imageOffsetX + cropState.imageWidth - cropState.startWidth;
+        const minTop = cropState.imageOffsetY;
+        const maxTop = cropState.imageOffsetY + cropState.imageHeight - cropState.startHeight;
+        
+        newLeft = Math.max(minLeft, Math.min(maxLeft, newLeft));
+        newTop = Math.max(minTop, Math.min(maxTop, newTop));
+        
+        cropBoxEl.style.left = newLeft + 'px';
+        cropBoxEl.style.top = newTop + 'px';
+    } else if (cropState.isResizing) {
+        // 调整裁剪框大小
+        const minSize = 50;
+        const maxSize = Math.min(cropState.imageWidth, cropState.imageHeight);
+        
+        let newWidth = cropState.startWidth + deltaX;
+        let newHeight = cropState.startHeight + deltaY;
+        
+        // 保持正方形
+        const size = Math.max(minSize, Math.min(maxSize, Math.max(newWidth, newHeight)));
+        
+        // 确保不超出图片边界
+        const maxLeft = cropState.imageOffsetX + cropState.imageWidth - size;
+        const maxTop = cropState.imageOffsetY + cropState.imageHeight - size;
+        
+        let newLeft = Math.max(cropState.imageOffsetX, Math.min(maxLeft, cropState.startLeft));
+        let newTop = Math.max(cropState.imageOffsetY, Math.min(maxTop, cropState.startTop));
+        
+        cropBoxEl.style.left = newLeft + 'px';
+        cropBoxEl.style.top = newTop + 'px';
+        cropBoxEl.style.width = size + 'px';
+        cropBoxEl.style.height = size + 'px';
+    }
+}
+
+function handleCropMouseUp() {
+    cropState.isDragging = false;
+    cropState.isResizing = false;
+}
+
+function handleCropConfirm() {
+    if (!selectedFile) return;
+    
+    try {
+        // 获取裁剪区域
+        const cropData = getCropData();
+        
+        // 创建canvas进行裁剪
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = function() {
+            try {
+                // 计算裁剪参数
+                const cropBox = cropBoxEl.getBoundingClientRect();
+                const containerRect = cropContainerEl.getBoundingClientRect();
+                const imageRect = previewImageEl.getBoundingClientRect();
+                
+                // 计算图片在容器中的实际位置
+                const imageOffsetX = imageRect.left - containerRect.left;
+                const imageOffsetY = imageRect.top - containerRect.top;
+                
+                // 计算裁剪框相对于图片的位置
+                const cropBoxLeft = cropBox.left - containerRect.left;
+                const cropBoxTop = cropBox.top - containerRect.top;
+                
+                // 计算图片的缩放比例（显示尺寸与原始尺寸的比例）
+                const displayScaleX = imageRect.width / img.width;
+                const displayScaleY = imageRect.height / img.height;
+                const displayScale = Math.min(displayScaleX, displayScaleY);
+                
+                // 计算在原始图片上的裁剪区域
+                const cropX = (cropBoxLeft - imageOffsetX) / displayScale;
+                const cropY = (cropBoxTop - imageOffsetY) / displayScale;
+                const cropSize = cropBox.width / displayScale;
+                
+                // 确保裁剪区域在图片范围内
+                const maxCropX = img.width - cropSize;
+                const maxCropY = img.height - cropSize;
+                const finalCropX = Math.max(0, Math.min(maxCropX, cropX));
+                const finalCropY = Math.max(0, Math.min(maxCropY, cropY));
+                const finalCropSize = Math.min(cropSize, img.width - finalCropX, img.height - finalCropY);
+                
+                // 设置canvas尺寸
+                canvas.width = finalCropSize;
+                canvas.height = finalCropSize;
+                
+                // 绘制裁剪后的图片
+                ctx.drawImage(img, finalCropX, finalCropY, finalCropSize, finalCropSize, 0, 0, finalCropSize, finalCropSize);
+                
+                // 转换为data URL并更新selectedFile
+                const dataURL = canvas.toDataURL(selectedFile.type);
+                
+                // 将data URL转换为File对象
+                const base64Data = dataURL.split(',')[1];
+                const byteCharacters = atob(base64Data);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: selectedFile.type });
+                
+                const croppedFile = new File([blob], selectedFile.name, {
+                    type: selectedFile.type,
+                    lastModified: Date.now()
+                });
+                selectedFile = croppedFile;
+                
+                // 更新预览（使用data URL）
+                previewImageEl.src = dataURL;
+                previewImageEl.style.transform = 'scale(1)'; // 重置缩放
+                
+                // 隐藏裁剪界面，显示确认上传按钮
+                cropOverlayEl.style.display = 'none';
+                
+                const cropActionsEl = document.getElementById('crop-actions');
+                
+                if (cropActionsEl) {
+                    cropActionsEl.style.display = 'none';
+                }
+                
+                uploadConfirmBtn.style.display = 'inline-flex';
+                uploadConfirmBtn.disabled = false;
+                
+            } catch (error) {
+                console.error('裁剪失败:', error);
+                // 如果裁剪失败，显示错误信息
+                alert('裁剪失败，请重新选择图片');
+                handleCropCancel();
+            }
+        };
+        
+        img.onerror = function() {
+            console.error('图片加载失败');
+            alert('图片加载失败，请重新选择图片');
+            handleCropCancel();
+        };
+        
+        // 使用FileReader读取文件为data URL
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            img.src = e.target.result;
+        };
+        reader.onerror = function() {
+            console.error('文件读取失败');
+            alert('文件读取失败，请重新选择图片');
+            handleCropCancel();
+        };
+        reader.readAsDataURL(selectedFile);
+        
+    } catch (error) {
+        console.error('裁剪处理失败:', error);
+        alert('裁剪处理失败，请重新选择图片');
+        handleCropCancel();
+    }
+}
+
+function handleCropCancel() {
+    // 重新选择图片
+    avatarFileInputEl.click();
+}
+
+function getCropData() {
+    const cropBox = cropBoxEl.getBoundingClientRect();
+    const overlay = cropOverlayEl.getBoundingClientRect();
+    
+    return {
+        x: cropBox.left - overlay.left,
+        y: cropBox.top - overlay.top,
+        width: cropBox.width,
+        height: cropBox.height
+    };
 } 
