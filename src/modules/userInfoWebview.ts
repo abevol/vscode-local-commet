@@ -134,6 +134,9 @@ export class UserInfoWebview {
                     case 'fetchSharedComments':
                         this.handleFetchSharedComments();
                         return;
+                    case 'uploadAvatar':
+                        this.handleUploadAvatar(message.data);
+                        return;
                     case 'close':
                         this.dispose();
                         return;
@@ -456,6 +459,75 @@ export class UserInfoWebview {
         }
 
         return stats;
+    }
+
+    private async handleUploadAvatar(data: {
+        fileName: string;
+        fileType: string;
+        fileSize: number;
+        base64Data: string;
+    }) {
+        try {
+            // 检查用户是否已登录
+            if (!this._authManager.isLoggedIn()) {
+                this._panel.webview.postMessage({
+                    command: 'uploadAvatarResult',
+                    success: false,
+                    message: '用户未登录'
+                });
+                return;
+            }
+
+            // 验证文件大小（2MB）
+            if (data.fileSize > 2 * 1024 * 1024) {
+                this._panel.webview.postMessage({
+                    command: 'uploadAvatarResult',
+                    success: false,
+                    message: '文件大小不能超过2MB'
+                });
+                return;
+            }
+
+            // 验证文件类型
+            if (!data.fileType.startsWith('image/')) {
+                this._panel.webview.postMessage({
+                    command: 'uploadAvatarResult',
+                    success: false,
+                    message: '只支持图片文件'
+                });
+                return;
+            }
+
+            // TODO: 这里应该调用实际的API上传头像
+            // 目前先模拟上传成功
+            console.log('头像上传数据:', {
+                fileName: data.fileName,
+                fileType: data.fileType,
+                fileSize: data.fileSize,
+                // base64Data 太长，不打印
+            });
+
+            // 模拟上传延迟
+            await new Promise(resolve => setTimeout(resolve, 1000));
+
+            // 发送上传成功消息
+            this._panel.webview.postMessage({
+                command: 'uploadAvatarResult',
+                success: true,
+                message: '头像上传成功'
+            });
+
+            // 显示成功通知
+            vscode.window.showInformationMessage('头像上传成功！');
+
+        } catch (error) {
+            console.error('头像上传失败:', error);
+            this._panel.webview.postMessage({
+                command: 'uploadAvatarResult',
+                success: false,
+                message: '头像上传失败: ' + (error as Error).message
+            });
+        }
     }
 
     public refreshUserInfo() {

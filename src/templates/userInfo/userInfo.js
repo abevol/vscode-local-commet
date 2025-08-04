@@ -49,11 +49,55 @@ const modalTextEl = document.getElementById('modal-text');
 const modalConfirmBtn = document.getElementById('modal-confirm-btn');
 const modalCancelBtn = document.getElementById('modal-cancel-btn');
 
+// 头像上传相关元素
+const avatarContainerEl = document.querySelector('.avatar-container');
+const avatarUploadModalEl = document.getElementById('avatar-upload-modal');
+const uploadAreaEl = document.getElementById('upload-area');
+const uploadPlaceholderEl = document.getElementById('upload-placeholder');
+const previewContainerEl = document.getElementById('preview-container');
+const previewImageEl = document.getElementById('preview-image');
+const avatarFileInputEl = document.getElementById('avatar-file-input');
+const uploadConfirmBtn = document.getElementById('upload-confirm-btn');
+const uploadCancelBtn = document.getElementById('upload-cancel-btn');
+
+// 文件上传状态
+let selectedFile = null;
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
     requestUserInfo();
     setupEventListeners();
+    
+    // 测试预览功能
+    testPreviewFunction();
 });
+
+// 测试预览功能
+function testPreviewFunction() {
+    console.log('测试预览功能...');
+    console.log('预览容器元素:', previewContainerEl);
+    console.log('预览图片元素:', previewImageEl);
+    console.log('上传占位符元素:', uploadPlaceholderEl);
+    
+    // 检查元素是否存在
+    if (!previewContainerEl) {
+        console.error('预览容器元素不存在');
+    }
+    if (!previewImageEl) {
+        console.error('预览图片元素不存在');
+    }
+    if (!uploadPlaceholderEl) {
+        console.error('上传占位符元素不存在');
+    }
+    
+    // 测试预览显示
+    if (previewContainerEl && uploadPlaceholderEl) {
+        console.log('测试预览显示...');
+        uploadPlaceholderEl.style.display = 'none';
+        previewContainerEl.style.display = 'flex';
+        console.log('预览容器应该已显示');
+    }
+}
 
 // 设置事件监听器
 function setupEventListeners() {
@@ -92,6 +136,25 @@ function setupEventListeners() {
             command: 'fetchSharedComments'
         });
     });
+    
+    // 头像上传相关事件
+    avatarContainerEl.addEventListener('click', () => {
+        showAvatarUploadModal();
+    });
+    
+    uploadAreaEl.addEventListener('click', () => {
+        avatarFileInputEl.click();
+    });
+    
+    avatarFileInputEl.addEventListener('change', handleFileSelect);
+    
+    uploadConfirmBtn.addEventListener('click', handleAvatarUpload);
+    uploadCancelBtn.addEventListener('click', hideAvatarUploadModal);
+    
+    // 拖拽上传功能
+    uploadAreaEl.addEventListener('dragover', handleDragOver);
+    uploadAreaEl.addEventListener('dragleave', handleDragLeave);
+    uploadAreaEl.addEventListener('drop', handleDrop);
 }
 
 // 请求用户信息
@@ -474,7 +537,7 @@ window.addEventListener('message', event => {
             showFetchSharedStatus(false);
             if (message.success) {
                 // 显示成功消息
-                alert(message.message || '获取共享注释成功');
+                console.log(message.message || '获取共享注释成功');
                 
                 // 如果有返回数据，可以进一步处理
                 if (message.data && Array.isArray(message.data)) {
@@ -484,7 +547,7 @@ window.addEventListener('message', event => {
                 }
             } else {
                 // 显示错误消息
-                alert('获取共享注释失败: ' + (message.message || '未知错误'));
+                console.error('获取共享注释失败: ' + (message.message || '未知错误'));
             }
             break;
         case 'logoutResult':
@@ -494,8 +557,189 @@ window.addEventListener('message', event => {
             } else {
                 // 退出登录失败，重置按钮状态
                 resetLogoutButton();
-                alert('退出登录失败: ' + message.message);
+                console.error('退出登录失败: ' + message.message);
+            }
+            break;
+        case 'uploadAvatarResult':
+            // 重置上传按钮状态
+            uploadConfirmBtn.disabled = false;
+            uploadConfirmBtn.textContent = '确定上传';
+            
+            if (message.success) {
+                // 上传成功，关闭模态框并刷新用户信息
+                hideAvatarUploadModal();
+                console.log('头像上传成功！');
+                requestUserInfo(); // 刷新用户信息以显示新头像
+            } else {
+                // 上传失败，显示错误信息
+                console.error('头像上传失败: ' + (message.message || '未知错误'));
             }
             break;
     }
-}); 
+});
+
+// 头像上传相关函数
+function showAvatarUploadModal() {
+    avatarUploadModalEl.style.display = 'flex';
+    resetUploadState();
+}
+
+function hideAvatarUploadModal() {
+    avatarUploadModalEl.style.display = 'none';
+    resetUploadState();
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (file) {
+        validateAndPreviewFile(file);
+    }
+}
+
+function handleDragOver(event) {
+    event.preventDefault();
+    uploadAreaEl.classList.add('dragover');
+}
+
+function handleDragLeave(event) {
+    event.preventDefault();
+    uploadAreaEl.classList.remove('dragover');
+}
+
+function handleDrop(event) {
+    event.preventDefault();
+    uploadAreaEl.classList.remove('dragover');
+    
+    const files = event.dataTransfer.files;
+    if (files.length > 0) {
+        validateAndPreviewFile(files[0]);
+    }
+}
+
+function validateAndPreviewFile(file) {
+    console.log('开始验证文件:', {
+        name: file.name,
+        type: file.type,
+        size: file.size
+    });
+    
+    // 验证文件类型
+    if (!file.type.startsWith('image/')) {
+        console.error('请选择图片文件');
+        return;
+    }
+    
+    // 验证文件大小（2MB）
+    if (file.size > 2 * 1024 * 1024) {
+        console.error('文件大小不能超过2MB');
+        return;
+    }
+    
+    selectedFile = file;
+    
+    // 预览图片
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        console.log('文件读取成功，开始预览');
+        console.log('预览容器元素:', previewContainerEl);
+        console.log('预览图片元素:', previewImageEl);
+        console.log('上传占位符元素:', uploadPlaceholderEl);
+        
+        try {
+            // 设置图片源
+            previewImageEl.src = e.target.result;
+            console.log('图片源设置完成:', e.target.result.substring(0, 50) + '...');
+            
+            // 确保预览容器显示
+            if (previewContainerEl) {
+                previewContainerEl.style.display = 'flex';
+                console.log('预览容器已显示');
+            }
+            
+            // 隐藏占位符
+            if (uploadPlaceholderEl) {
+                uploadPlaceholderEl.style.display = 'none';
+                console.log('占位符已隐藏');
+            }
+            
+            // 启用上传按钮
+            uploadConfirmBtn.disabled = false;
+            
+            console.log('预览功能完成');
+            
+        } catch (error) {
+            console.error('预览过程中出错:', error);
+            console.error('预览失败，请重新选择图片');
+            resetUploadState();
+        }
+    };
+    
+    reader.onerror = function() {
+        console.error('文件读取失败');
+        console.error('文件读取失败，请重新选择图片');
+        resetUploadState();
+    };
+    
+    reader.readAsDataURL(selectedFile);
+}
+
+// 修改上传处理函数，使用原始图片
+function handleAvatarUpload() {
+    if (!selectedFile) {
+        console.error('请先选择图片');
+        return;
+    }
+    
+    // 显示上传中状态
+    uploadConfirmBtn.disabled = true;
+    uploadConfirmBtn.textContent = '上传中...';
+    
+    try {
+        // 将文件转换为base64数据
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const base64Data = e.target.result;
+            
+            // 发送上传请求到扩展
+            vscode.postMessage({
+                command: 'uploadAvatar',
+                data: {
+                    fileName: selectedFile.name,
+                    fileType: selectedFile.type,
+                    fileSize: selectedFile.size,
+                    base64Data: base64Data
+                }
+            });
+        };
+        
+        reader.onerror = function() {
+            console.error('文件读取失败');
+            uploadConfirmBtn.disabled = false;
+            uploadConfirmBtn.textContent = '确定上传';
+        };
+        
+        reader.readAsDataURL(selectedFile);
+        
+    } catch (error) {
+        console.error('图片处理失败:', error);
+        uploadConfirmBtn.disabled = false;
+        uploadConfirmBtn.textContent = '确定上传';
+    }
+}
+
+// 修改重置函数，移除裁剪状态重置
+function resetUploadState() {
+    selectedFile = null;
+    
+    // 重置UI状态
+    if (uploadPlaceholderEl) {
+        uploadPlaceholderEl.style.display = 'flex';
+    }
+    if (previewContainerEl) {
+        previewContainerEl.style.display = 'none';
+    }
+    if (uploadConfirmBtn) {
+        uploadConfirmBtn.disabled = true;
+        uploadConfirmBtn.textContent = '确定上传';
+    }
+} 
