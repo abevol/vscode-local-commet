@@ -197,7 +197,7 @@ function showUserInfo(data) {
     userProfileEl.style.display = 'block';
     errorMessageEl.style.display = 'none';
     
-    populateUserInfo(data.user);
+    populateUserInfo(data.user, data.apiBaseUrl);
     populateStats(data.stats);
     
     // 请求项目列表
@@ -213,12 +213,22 @@ function showError(message) {
 }
 
 // 填充用户信息
-function populateUserInfo(user) {
+function populateUserInfo(user, apiBaseUrl) {
     if (!user) return;
     
     // 设置头像
     if (user.avatar) {
-        userAvatarEl.src = user.avatar;
+        // 如果avatar是相对路径，需要拼接API基础URL
+        let avatarUrl = user.avatar;
+        if (avatarUrl && !avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://') && !avatarUrl.startsWith('data:')) {
+            // 确保avatar路径以/开头
+            if (!avatarUrl.startsWith('/')) {
+                avatarUrl = '/' + avatarUrl;
+            }
+            avatarUrl = apiBaseUrl + avatarUrl;
+        }
+        userAvatarEl.src = avatarUrl;
+
         userAvatarEl.style.display = 'block';
         avatarPlaceholderEl.style.display = 'none';
     } else {
@@ -547,12 +557,9 @@ window.addEventListener('message', event => {
             // 处理获取共享注释的结果
             showFetchSharedStatus(false);
             if (message.success) {
-                // 显示成功消息
-                console.log(message.message || '获取共享注释成功');
                 
                 // 如果有返回数据，可以进一步处理
                 if (message.data && Array.isArray(message.data)) {
-                    console.log('获取到的共享注释:', message.data);
                     // 这里可以添加处理共享注释的逻辑
                     // 例如：更新UI显示共享注释数量等
                 }
@@ -579,7 +586,7 @@ window.addEventListener('message', event => {
             if (message.success) {
                 // 上传成功，关闭模态框并刷新用户信息
                 hideAvatarUploadModal();
-                console.log('头像上传成功！');
+                
                 requestUserInfo(); // 刷新用户信息以显示新头像
             } else {
                 // 上传失败，显示错误信息
@@ -658,8 +665,6 @@ function validateAndPreviewFile(file) {
             
             // 重置裁剪状态
             resetCropState();
-            
-            console.log('图片加载完成，准备设置裁剪框');
             
         } catch (error) {
             console.error('预览失败，请重新选择图片');

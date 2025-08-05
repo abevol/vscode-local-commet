@@ -179,13 +179,18 @@ export class UserInfoWebview {
             // 获取使用统计
             const stats = this.getUsageStats();
             
+            // 获取API基础URL
+            const config = vscode.workspace.getConfiguration('local-comment');
+            const apiBaseUrl = config.get<string>('server.apiUrl');
+            
             // 发送用户信息和统计信息到webview
             this._panel.webview.postMessage({
                 command: 'userInfoResult',
                 success: true,
                 data: {
                     user,
-                    stats
+                    stats,
+                    apiBaseUrl
                 }
             });
         } catch (error) {
