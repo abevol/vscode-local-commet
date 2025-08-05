@@ -23,14 +23,16 @@ export interface SharedComment extends LocalComment {
     username?: string; // 用户名
 }
 
-// 项目共享注释的接口
+// 项目共享注释的接口 
 export interface ProjectSharedComment {
-    content: LocalComment; // 注释内容（LocalComment结构）
+    content: any; // 注释内容
     file_path: string; // 文件路径
     project_id: number; // 项目ID
     is_public: boolean; // 是否公开
     id: number; // 注释ID
     user_id: number; // 用户ID
+    user_avatar?: string; // 用户头像URL
+    username?: string; // 用户名
     created_at: string; // 创建时间
     updated_at: string; // 更新时间
 }
@@ -115,6 +117,7 @@ export class CommentManager {
 
             if (fs.existsSync(this.storageFile)) {
                 const data = fs.readFileSync(this.storageFile, 'utf8');
+                console.log('🔍 调试存储文件原始内容:', data);
                 this.comments = JSON.parse(data);
             } else {
                 // 如果项目特定的文件不存在，尝试迁移旧数据
@@ -438,11 +441,24 @@ export class CommentManager {
                 comment.isMatched = true;
                 
                 // 创建一个新的注释对象，更新行号但保持原有信息
-                const matchedComment = {
-                    ...comment,
-                    line: matchedLine,
-                    isMatched: true // 确保复制的对象也有匹配状态
-                };
+                let matchedComment: LocalComment | SharedComment;
+                
+                // 检查是否为共享注释，保持类型信息
+                if ('userId' in comment) {
+                    const sharedComment = comment as SharedComment;
+                    matchedComment = {
+                        ...sharedComment,
+                        line: matchedLine,
+                        isMatched: true // 确保复制的对象也有匹配状态
+                    } as SharedComment;
+                    
+                } else {
+                    matchedComment = {
+                        ...comment,
+                        line: matchedLine,
+                        isMatched: true // 确保复制的对象也有匹配状态
+                    };
+                }
                 matchedComments.push(matchedComment);
                 
                 // 如果位置发生了变化，更新存储的注释
@@ -1306,6 +1322,19 @@ export class CommentManager {
                         this.comments[targetFilePath] = [];
                     }
 
+                    // 调试API返回的原始数据
+                    console.log('🔍 调试API返回的项目共享注释数据:', {
+                        id: projectComment.id,
+                        user_id: projectComment.user_id,
+                        user_avatar: projectComment.user_avatar,
+                        username: projectComment.username,
+                        content: projectComment.content,
+                        // 添加更详细的调试信息
+                        hasUsername: 'username' in projectComment,
+                        hasUserAvatar: 'user_avatar' in projectComment,
+                        projectCommentKeys: Object.keys(projectComment)
+                    });
+
                     // 将 ProjectSharedComment 转换为 SharedComment
                     const sharedComment: SharedComment = {
                         id: projectComment.id.toString(), // 转换为字符串ID
@@ -1317,8 +1346,8 @@ export class CommentManager {
                         isMatched: projectComment.content.isMatched,
                         isShared: true, // 标记为共享注释
                         userId: projectComment.user_id.toString(), // 用户ID
-                        userAvatar: undefined, // 暂时设为undefined，后续可以从API获取
-                        username: undefined // 暂时设为undefined，后续可以从API获取
+                        userAvatar: projectComment.user_avatar, // 从API返回数据中获取用户头像
+                        username: projectComment.username // 从API返回数据中获取用户名
                     };
 
                     // 检查是否已存在相同的共享注释

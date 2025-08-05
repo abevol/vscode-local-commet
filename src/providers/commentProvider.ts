@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import { CommentManager, LocalComment, SharedComment } from '../managers/commentManager';
 import { createDataUri } from '../utils/utils';
+import axios from 'axios';
 
 export class CommentProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
@@ -301,7 +302,39 @@ export class CommentProvider implements vscode.Disposable {
                 
                 // 显示用户信息
                 if (sharedComment.username) {
-                    markdownContent.appendMarkdown(`**用户**: ${sharedComment.username}\n\n`);
+                    // 如果有用户头像，显示头像和用户名
+                    if (sharedComment.userAvatar) {
+                        // 获取API基础URL并拼接完整的头像URL
+                        const apiBaseUrl = this.getApiBaseUrl();
+                        let avatarUrl = sharedComment.userAvatar;
+                        
+                        // 如果avatar是相对路径，需要拼接API基础URL
+                        if (avatarUrl && !avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://') && !avatarUrl.startsWith('data:')) {
+                            // 确保avatar路径以/开头
+                            if (!avatarUrl.startsWith('/')) {
+                                avatarUrl = '/' + avatarUrl;
+                            }
+                            avatarUrl = apiBaseUrl + avatarUrl;
+                        }
+                        
+                                                 // 尝试获取头像并转换为base64，如果失败则使用VSCode内置图标
+                         try {
+                             const imageData = await this.fetchImageAsBase64(avatarUrl);
+                             if (imageData) {
+                                 markdownContent.appendMarkdown(`<img src="${imageData}" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;" alt="用户头像" />`);
+                                 markdownContent.appendMarkdown(`**用户**: ${sharedComment.username}\n\n`);
+                             } else {
+                                 // 如果获取失败，使用VSCode内置图标
+                                 markdownContent.appendMarkdown(`$(account) **用户**: ${sharedComment.username}\n\n`);
+                             }
+                         } catch (error) {
+                             console.error('获取头像失败:', error);
+                             // 使用VSCode内置图标作为备选
+                             markdownContent.appendMarkdown(`$(account) **用户**: ${sharedComment.username}\n\n`);
+                         }
+                    } else {
+                        markdownContent.appendMarkdown(`**用户**: ${sharedComment.username}\n\n`);
+                    }
                 } else {
                     markdownContent.appendMarkdown(`**用户ID**: ${sharedComment.userId}\n\n`);
                 }
@@ -404,5 +437,40 @@ export class CommentProvider implements vscode.Disposable {
             this.updateDecorations();
             this.updateTimer = null;
         }, 100); // 100ms防抖延迟
+    }
+
+    /**
+     * 获取API基础URL
+     */
+    private getApiBaseUrl(): string {
+        const config = vscode.workspace.getConfiguration('local-comment');
+        const apiUrl = config.get<string>('server.apiUrl');
+        if (!apiUrl) {
+            throw new Error('API服务器地址未配置，请在设置中配置 server.apiUrl');
+        }
+        return apiUrl;
+    }
+
+    /**
+     * 获取图片并转换为base64格式
+     */
+    private async fetchImageAsBase64(imageUrl: string): Promise<string | null> {
+        try {
+            const response = await axios.get(imageUrl, {
+                responseType: 'arraybuffer',
+                timeout: 5000,
+                validateStatus: (status) => status === 200
+            });
+
+            const buffer = Buffer.from(response.data);
+            const base64 = buffer.toString('base64');
+            const contentType = response.headers['content-type'] || 'image/png';
+            const dataUri = `data:${contentType};base64,${base64}`;
+            
+            return dataUri;
+        } catch (error) {
+            console.error('获取图片失败:', error);
+            return null;
+        }
     }
 }
