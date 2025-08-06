@@ -401,6 +401,17 @@ export class CommentManager {
     }
 
     /**
+     * 根据登录状态处理共享注释
+     * 当用户未登录时，清除所有共享注释
+     * @param isLoggedIn 用户是否已登录
+     */
+    public async handleSharedCommentsByAuthStatus(isLoggedIn: boolean): Promise<void> {
+        if (!isLoggedIn) {
+            await this.clearAllSharedComments();
+        } 
+    }
+
+    /**
      * 清空指定文件的共享注释
      * @param uri 文件URI
      * @returns 清空的共享注释数量
@@ -496,7 +507,7 @@ export class CommentManager {
                 }
                 matchedComments.push(matchedComment);
                 
-                console.log(`🔍 匹配结果:`, matchedComment);
+                console.log(`🔍 匹配结果matchedComment:`, matchedComment);
 
                 // 如果位置发生了变化，更新存储的注释
                 if (comment.line !== matchedLine) {

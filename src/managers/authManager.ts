@@ -28,6 +28,10 @@ export class AuthManager {
     private sessionFile: string;
     private currentSession: AuthSession | null = null;
     private isAuthenticated = false;
+    private _isInitialized = false; // 添加初始化完成标志
+    
+    // 添加事件监听器
+    private initializationListeners: Array<() => void> = [];
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -94,6 +98,12 @@ export class AuthManager {
         } catch (error) {
             console.error('加载会话失败:', error);
             this.clearSession();
+        } finally {
+            // 标记初始化完成
+            this._isInitialized = true;
+            
+            // 通知所有等待初始化的监听器
+            this.notifyInitializationComplete();
         }
     }
 
@@ -188,6 +198,44 @@ export class AuthManager {
      */
     public isLoggedIn(): boolean {
         return this.isAuthenticated && this.currentSession !== null;
+    }
+
+    /**
+     * 检查认证管理器是否已初始化完成
+     */
+    public isInitialized(): boolean {
+        return this._isInitialized;
+    }
+
+    /**
+     * 订阅初始化完成事件
+     * @param callback 初始化完成时的回调函数
+     */
+    public onInitialized(callback: () => void): void {
+        if (this._isInitialized) {
+            // 如果已经初始化完成，立即执行回调
+            callback();
+        } else {
+            // 否则添加到监听器列表
+            this.initializationListeners.push(callback);
+        }
+    }
+
+    /**
+     * 通知所有等待初始化的监听器
+     */
+    private notifyInitializationComplete(): void {
+        // 执行所有监听器
+        this.initializationListeners.forEach(callback => {
+            try {
+                callback();
+            } catch (error) {
+                console.error('执行初始化完成回调时出错:', error);
+            }
+        });
+        
+        // 清空监听器列表
+        this.initializationListeners = [];
     }
 
     /**

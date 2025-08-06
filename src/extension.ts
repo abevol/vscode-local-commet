@@ -156,17 +156,25 @@ export function activate(context: vscode.ExtensionContext) {
     statusBarItem.show();
     context.subscriptions.push(statusBarItem);
 
-    // 检查用户登录状态
-    if (!authManager.isLoggedIn()) {
-        // 可以在这里添加自动显示登录界面的逻辑
-        // 或者只是记录状态，让用户手动触发登录
-        console.log('用户未登录，某些功能可能受限');
-    } else {
-        const user = authManager.getCurrentUser();
-        console.log(`用户已登录: ${user?.username}`);
-        
-        // 如果用户已登录，尝试自动加载共享注释
-        setTimeout(async () => {
+    // 处理共享注释的函数
+    const handleSharedCommentsAfterInit = async () => {
+        const isLoggedIn = authManager.isLoggedIn();
+        if (!isLoggedIn) {
+            console.log('用户未登录，某些功能可能受限');
+            // 用户未登录时，清除所有共享注释
+            try {
+                await commentManager.handleSharedCommentsByAuthStatus(false);
+                // 刷新注释显示
+                commentProvider.refresh();
+                commentTreeProvider.refresh();
+            } catch (error) {
+                console.error('清除共享注释失败:', error);
+            }
+        } else {
+            const user = authManager.getCurrentUser();
+            console.log(`用户已登录: ${user?.username}`);
+            
+            // 如果用户已登录，尝试自动加载共享注释
             try {
                 const associatedProjectId = projectManager.getAssociatedProject();
                 if (associatedProjectId) {
@@ -178,6 +186,7 @@ export function activate(context: vscode.ExtensionContext) {
                             console.log(`✅ 自动加载了 ${sharedComments.length} 条共享注释`);
                             // 刷新注释显示
                             commentProvider.refresh();
+                            commentTreeProvider.refresh();
                         } else {
                             console.log('ℹ️ 项目中没有共享注释');
                         }
@@ -188,8 +197,14 @@ export function activate(context: vscode.ExtensionContext) {
             } catch (error) {
                 console.error('自动加载共享注释失败:', error);
             }
-        }, 1000); // 延迟1秒执行，确保其他初始化完成
-    }
+        }
+    };
+
+    // 订阅认证管理器初始化完成事件
+    authManager.onInitialized(async () => {
+        console.log('✅ 认证管理器初始化完成，开始处理共享注释');
+        await handleSharedCommentsAfterInit();
+    });
 
     // 监听编辑器变化
     const onDidChangeActiveTextEditor = vscode.window.onDidChangeActiveTextEditor((editor) => {
@@ -258,19 +273,39 @@ export function activate(context: vscode.ExtensionContext) {
     };
 
     // 监听登录状态变化
-    const onUserLogin = vscode.commands.registerCommand('localComment.onUserLogin', (user) => {
+    const onUserLogin = vscode.commands.registerCommand('localComment.onUserLogin', async (user) => {
         updateStatusBar();
         vscode.window.showInformationMessage(`欢迎回来，${user.username}！`);
+        
+        // 用户登录后，处理共享注释（保留现有共享注释）
+        try {
+            await commentManager.handleSharedCommentsByAuthStatus(true);
+            // 刷新注释显示
+            commentProvider.refresh();
+            commentTreeProvider.refresh();
+        } catch (error) {
+            console.error('处理登录后的共享注释失败:', error);
+        }
         
         // 登录成功后自动打开用户信息界面
         setTimeout(() => {
             vscode.commands.executeCommand('localComment.showUserInfo');
-        }, 300); // 延迟1秒，让用户看到欢迎消息
+        }, 300); // 延迟300ms，让用户看到欢迎消息
     });
 
-    const onUserLogout = vscode.commands.registerCommand('localComment.onUserLogout', () => {
+    const onUserLogout = vscode.commands.registerCommand('localComment.onUserLogout', async () => {
         updateStatusBar();
         vscode.window.showInformationMessage('您已成功登出');
+        
+        // 用户登出后，清除所有共享注释
+        try {
+            await commentManager.handleSharedCommentsByAuthStatus(false);
+            // 刷新注释显示
+            commentProvider.refresh();
+            commentTreeProvider.refresh();
+        } catch (error) {
+            console.error('处理登出后的共享注释失败:', error);
+        }
     });
 
     // 在注册自动补全和定义提供器的部分后添加
