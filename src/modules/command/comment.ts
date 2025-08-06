@@ -817,8 +817,8 @@ export function registerCommentCommands(
                         return;
                     }
                     
-                    // 删除现有注释
-                    const existingIndex = fileComments.findIndex(c => c.id === existingComment.id);
+                                    // 删除现有注释
+                const existingIndex = commentManager.findCommentIndex(fileComments, existingComment.id);
                     if (existingIndex >= 0) {
                         fileComments.splice(existingIndex, 1);
                     }

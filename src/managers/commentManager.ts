@@ -43,6 +43,7 @@ export interface FileComments {
 
 export class CommentManager {
     private comments: FileComments = {};
+    private shareComments: FileComments = {};
     private storageFile: string;
     private context: vscode.ExtensionContext;
     private _hasKeyboardActivity = false; // 记录键盘活动状态，用于区分用户编辑和Git分支切换
@@ -60,6 +61,16 @@ export class CommentManager {
         });
         
         context.subscriptions.push(workspaceWatcher);
+    }
+
+    /**
+     * 查找注释在数组中的索引
+     * @param comments 注释数组
+     * @param commentId 注释ID
+     * @returns 注释的索引，如果未找到则返回-1
+     */
+    public findCommentIndex(comments: (LocalComment | SharedComment)[], commentId: string): number {
+        return comments.findIndex(c => c.id === commentId);
     }
 
     /**
@@ -110,6 +121,8 @@ export class CommentManager {
     private async loadComments(): Promise<void> {
         try {
             // 确保存储目录存在
+            // localCommnet和sharedComment的存储文件是同一个storageFile中，
+            // 只是使用了不同的key来区分
             const storageDir = path.dirname(this.storageFile);
             if (!fs.existsSync(storageDir)) {
                 fs.mkdirSync(storageDir, { recursive: true });
@@ -118,15 +131,34 @@ export class CommentManager {
             if (fs.existsSync(this.storageFile)) {
                 const data = fs.readFileSync(this.storageFile, 'utf8');
                 console.log('🔍 调试存储文件原始内容:', data);
-                this.comments = JSON.parse(data);
+                
+                try {
+                    const parsedData = JSON.parse(data);
+                    
+                    // 处理新的存储格式（包含comments和shareComments）
+                    if (parsedData.comments && parsedData.shareComments) {
+                        this.comments = parsedData.comments;
+                        this.shareComments = parsedData.shareComments;
+                    } else {
+                        // 向后兼容：只有comments字段的旧格式
+                        this.comments = parsedData;
+                        this.shareComments = {};
+                    }
+                } catch (parseError) {
+                    console.error('解析存储文件失败:', parseError);
+                    this.comments = {};
+                    this.shareComments = {};
+                }
             } else {
                 // 如果项目特定的文件不存在，尝试迁移旧数据
                 this.comments = {};
+                this.shareComments = {};
                 await this.tryMigrateOldData();
             }
         } catch (error) {
             console.error('加载注释失败:', error);
             this.comments = {};
+            this.shareComments = {};
         }
     }
 
@@ -181,7 +213,13 @@ export class CommentManager {
                 fs.mkdirSync(storageDir, { recursive: true });
             }
             
-            fs.writeFileSync(this.storageFile, JSON.stringify(this.comments, null, 2));
+            // 保存本地注释和共享注释
+            const dataToSave = {
+                comments: this.comments,
+                shareComments: this.shareComments
+            };
+            
+            fs.writeFileSync(this.storageFile, JSON.stringify(dataToSave, null, 2));
         } catch (error) {
             console.error('保存注释失败:', error);
         }
@@ -208,11 +246,26 @@ export class CommentManager {
             isShared: false
         };
 
-        // 检查是否已存在该行的注释，如果存在则替换
-        const existingIndex = this.comments[filePath].findIndex(c => c.line === line);
-        if (existingIndex >= 0) {
-            this.comments[filePath][existingIndex] = comment;
+        // 检查是否已存在该行的本地注释，如果存在则替换
+        const existingLocalIndex = this.comments[filePath].findIndex(c => 
+            c.line === line && !('userId' in c) // 只检查本地注释
+        );
+        
+        if (existingLocalIndex >= 0) {
+            // 替换现有的本地注释
+            this.comments[filePath][existingLocalIndex] = comment;
+            console.log(`替换第 ${line + 1} 行的本地注释`);
         } else {
+            // 检查是否有共享注释在同一行
+            const existingSharedComments = this.shareComments[filePath]?.filter(c => 
+                c.line === line
+            ) || [];
+            
+            if (existingSharedComments.length > 0) {
+                console.log(`第 ${line + 1} 行已有 ${existingSharedComments.length} 条共享注释，添加本地注释`);
+            }
+            
+            // 添加新的本地注释
             this.comments[filePath].push(comment);
         }
 
@@ -227,7 +280,7 @@ export class CommentManager {
             return;
         }
 
-        const commentIndex = this.comments[filePath].findIndex(c => c.id === commentId);
+        const commentIndex = this.findCommentIndex(this.comments[filePath], commentId);
         if (commentIndex === -1) {
             vscode.window.showWarningMessage('找不到指定的注释');
             return;
@@ -258,8 +311,11 @@ export class CommentManager {
             return;
         }
 
+        // 只删除本地注释，保留共享注释
         const initialLength = this.comments[filePath].length;
-        this.comments[filePath] = this.comments[filePath].filter(c => c.line !== line);
+        this.comments[filePath] = this.comments[filePath].filter(c => 
+            !(c.line === line && !('userId' in c)) // 只过滤掉本地注释
+        );
 
         if (this.comments[filePath].length === initialLength) {
             vscode.window.showWarningMessage(`第 ${line + 1} 行没有本地注释`);
@@ -322,31 +378,17 @@ export class CommentManager {
      */
     public async clearAllSharedComments(): Promise<number> {
         let totalRemoved = 0;
-        const filesToRemove: string[] = [];
 
         // 遍历所有文件，移除共享注释
-        for (const [filePath, comments] of Object.entries(this.comments)) {
-            if (!Array.isArray(comments)) continue;
+        for (const [filePath, sharedComments] of Object.entries(this.shareComments)) {
+            if (!Array.isArray(sharedComments)) continue;
 
-            // 过滤出非共享注释
-            const nonSharedComments = comments.filter(comment => !comment.isShared);
-            
-            if (nonSharedComments.length === 0) {
-                // 如果文件只剩下共享注释，删除整个文件记录
-                filesToRemove.push(filePath);
-                totalRemoved += comments.length;
-            } else if (nonSharedComments.length < comments.length) {
-                // 如果文件有混合注释，只移除共享注释
-                const sharedCount = comments.length - nonSharedComments.length;
-                this.comments[filePath] = nonSharedComments;
-                totalRemoved += sharedCount;
-            }
+            totalRemoved += sharedComments.length;
+            console.log(`已从 ${filePath} 移除 ${sharedComments.length} 个共享注释`);
         }
 
-        // 删除只包含共享注释的文件记录
-        for (const filePath of filesToRemove) {
-            delete this.comments[filePath];
-        }
+        // 清空所有共享注释
+        this.shareComments = {};
 
         if (totalRemoved > 0) {
             await this.saveComments();
@@ -366,34 +408,21 @@ export class CommentManager {
     public async clearFileSharedComments(uri: vscode.Uri): Promise<number> {
         const filePath = uri.fsPath;
         
-        if (!this.comments[filePath] || this.comments[filePath].length === 0) {
-            vscode.window.showWarningMessage('该文件没有注释');
-            return 0;
-        }
-
-        const fileComments = this.comments[filePath];
-        const sharedComments = fileComments.filter(comment => comment.isShared);
-        
-        if (sharedComments.length === 0) {
+        if (!this.shareComments[filePath] || this.shareComments[filePath].length === 0) {
             vscode.window.showWarningMessage('该文件没有共享注释');
             return 0;
         }
 
-        // 过滤出非共享注释
-        const nonSharedComments = fileComments.filter(comment => !comment.isShared);
-        
-        if (nonSharedComments.length === 0) {
-            // 如果文件只剩下共享注释，删除整个文件记录
-            delete this.comments[filePath];
-        } else {
-            // 保留非共享注释
-            this.comments[filePath] = nonSharedComments;
-        }
+        const sharedComments = this.shareComments[filePath];
+        const removedCount = sharedComments.length;
+
+        // 删除该文件的共享注释
+        delete this.shareComments[filePath];
 
         await this.saveComments();
-        vscode.window.showInformationMessage(`已清空文件的所有共享注释，共删除 ${sharedComments.length} 条共享注释`);
+        vscode.window.showInformationMessage(`已清空文件的所有共享注释，共删除 ${removedCount} 条共享注释`);
         
-        return sharedComments.length;
+        return removedCount;
     }
 
     /**
@@ -413,9 +442,13 @@ export class CommentManager {
      */
     public getComments(uri: vscode.Uri): (LocalComment | SharedComment)[] {
         const filePath = uri.fsPath;
-        const fileComments = this.comments[filePath] || [];
+        const localComments = this.comments[filePath] || [];
+        const sharedComments = this.shareComments[filePath] || [];
         
-        if (fileComments.length === 0) {
+        // 合并本地注释和共享注释
+        const allComments = [...localComments, ...sharedComments];
+        
+        if (allComments.length === 0) {
             return [];
         }
 
@@ -428,12 +461,14 @@ export class CommentManager {
 
         // 文件首次加载场景：使用支持全文搜索的批量匹配功能
         console.log(`🔍 文件首次加载场景，使用全文搜索进行智能匹配`);
-        const matchResults = this.commentMatcher.batchMatchCommentsWithFullSearch(document, fileComments);
+        console.log(`🔍 匹配前注释数量: ${allComments.length} (本地: ${localComments.length}, 共享: ${sharedComments.length})`);
+        const matchResults = this.commentMatcher.batchMatchCommentsWithFullSearch(document, allComments);
+        console.log(`🔍 匹配结果:`, matchResults);
         
         const matchedComments: (LocalComment | SharedComment)[] = [];
         let needsSave = false;
 
-        for (const comment of fileComments) {
+        for (const comment of allComments) {
             const matchedLine = matchResults.get(comment.id) ?? -1;
             
             if (matchedLine !== -1) {
@@ -461,6 +496,8 @@ export class CommentManager {
                 }
                 matchedComments.push(matchedComment);
                 
+                console.log(`🔍 匹配结果:`, matchedComment);
+
                 // 如果位置发生了变化，更新存储的注释
                 if (comment.line !== matchedLine) {
                     comment.line = matchedLine;
@@ -730,7 +767,22 @@ export class CommentManager {
     }
 
     public getAllComments(): FileComments {
-        return this.comments;
+        // 合并本地注释和共享注释
+        const allComments: FileComments = {};
+        
+        // 获取所有文件路径（本地注释和共享注释的并集）
+        const allFilePaths = new Set([
+            ...Object.keys(this.comments),
+            ...Object.keys(this.shareComments)
+        ]);
+        
+        for (const filePath of allFilePaths) {
+            const localComments = this.comments[filePath] || [];
+            const sharedComments = this.shareComments[filePath] || [];
+            allComments[filePath] = [...localComments, ...sharedComments];
+        }
+        
+        return allComments;
     }
 
     public getStorageFilePath(): string {
@@ -826,11 +878,26 @@ export class CommentManager {
             isShared: false
         };
 
-        // 检查是否已存在该行的注释，如果存在则替换
-        const existingIndex = this.comments[filePath].findIndex(c => c.line === line);
-        if (existingIndex >= 0) {
-            this.comments[filePath][existingIndex] = comment;
+        // 检查是否已存在该行的本地注释，如果存在则替换
+        const existingLocalIndex = this.comments[filePath].findIndex(c => 
+            c.line === line && !('userId' in c) // 只检查本地注释
+        );
+        
+        if (existingLocalIndex >= 0) {
+            // 替换现有的本地注释
+            this.comments[filePath][existingLocalIndex] = comment;
+            console.log(`替换第 ${line + 1} 行的本地注释`);
         } else {
+            // 检查是否有共享注释在同一行
+            const existingSharedComments = this.shareComments[filePath]?.filter(c => 
+                c.line === line
+            ) || [];
+            
+            if (existingSharedComments.length > 0) {
+                console.log(`第 ${line + 1} 行已有 ${existingSharedComments.length} 条共享注释，添加本地注释`);
+            }
+            
+            // 添加新的本地注释
             this.comments[filePath].push(comment);
         }
 
@@ -984,7 +1051,7 @@ export class CommentManager {
 
                     if (mergeMode === 'merge') {
                         // 合并模式：检查是否已存在相同ID的注释
-                        const existingIndex = this.comments[targetFilePath].findIndex(c => c.id === comment.id);
+                        const existingIndex = this.findCommentIndex(this.comments[targetFilePath], comment.id);
                         if (existingIndex >= 0) {
                             // 如果存在相同ID，跳过或更新（这里选择跳过避免冲突）
                             skippedComments++;
@@ -1197,10 +1264,9 @@ export class CommentManager {
                 this.comments[filePath] = [];
             }
 
-            // 检查是否已存在相同的共享注释（通过ID或内容判断）
-            const existingIndex = this.comments[filePath].findIndex(c => 
-                c.id === sharedComment.id || 
-                (c.line === sharedComment.line && c.content === sharedComment.content)
+            // 检查是否已存在相同的共享注释（只检查ID，避免覆盖localComment）
+            const existingSharedIndex = this.comments[filePath].findIndex(c => 
+                c.id === sharedComment.id && c.isShared === true
             );
 
             // 转换为本地注释格式
@@ -1215,12 +1281,22 @@ export class CommentManager {
                 isShared: true // 标记为共享注释
             };
 
-            if (existingIndex >= 0) {
-                // 更新现有注释
-                this.comments[filePath][existingIndex] = localComment;
+            if (existingSharedIndex >= 0) {
+                // 更新现有的共享注释
+                this.comments[filePath][existingSharedIndex] = localComment;
                 console.log(`已更新共享注释: ${sharedComment.id}`);
             } else {
-                // 添加新注释
+                // 检查是否在同一行有localComment
+                const existingLocalIndex = this.comments[filePath].findIndex(c => 
+                    c.line === sharedComment.line && c.isShared !== true
+                );
+
+                if (existingLocalIndex >= 0) {
+                    // 同一行有localComment，保留localComment，添加sharedComment
+                    console.log(`检测到同一行有localComment，保留localComment并添加sharedComment: ${sharedComment.id}`);
+                }
+                
+                // 添加新的共享注释（无论是否有localComment都添加）
                 this.comments[filePath].push(localComment);
                 console.log(`已添加共享注释: ${sharedComment.id}`);
             }
@@ -1317,9 +1393,9 @@ export class CommentManager {
                         continue;
                     }
 
-                    // 确保文件注释数组存在
-                    if (!this.comments[targetFilePath]) {
-                        this.comments[targetFilePath] = [];
+                    // 确保文件共享注释数组存在
+                    if (!this.shareComments[targetFilePath]) {
+                        this.shareComments[targetFilePath] = [];
                     }
 
                     // 调试API返回的原始数据
@@ -1351,18 +1427,15 @@ export class CommentManager {
                     };
 
                     // 检查是否已存在相同的共享注释
-                    const existingIndex = this.comments[targetFilePath].findIndex(c => 
-                        c.id === sharedComment.id || 
-                        (c.line === sharedComment.line && c.content === sharedComment.content)
-                    );
+                    const existingSharedIndex = this.findCommentIndex(this.shareComments[targetFilePath], sharedComment.id);
 
-                    if (existingIndex >= 0) {
-                        // 更新现有注释
-                        this.comments[targetFilePath][existingIndex] = sharedComment;
+                    if (existingSharedIndex >= 0) {
+                        // 更新现有的共享注释
+                        this.shareComments[targetFilePath][existingSharedIndex] = sharedComment;
                         console.log(`已更新项目共享注释: ${sharedComment.id}`);
                     } else {
-                        // 添加新注释
-                        this.comments[targetFilePath].push(sharedComment);
+                        // 添加新的共享注释
+                        this.shareComments[targetFilePath].push(sharedComment);
                         console.log(`已添加项目共享注释: ${sharedComment.id}`);
                     }
 

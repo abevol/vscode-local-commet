@@ -27,7 +27,7 @@ export class TagCompletionProvider implements vscode.CompletionItemProvider {
         const lineText = document.lineAt(position.line).text;
         const lineLength = lineText.length;
         
-        // 注释内容的起始位置：行末 + " 💬 " (4个字符)
+        // 注释内容的起始位置：行末 + 4个字符 
         const contentStart = lineLength + 4;
         
         // 检查光标是否在注释区域内

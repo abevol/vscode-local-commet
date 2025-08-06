@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { CommentManager, LocalComment, FileComments } from '../managers/commentManager';
+import { CommentManager, LocalComment, SharedComment, FileComments } from '../managers/commentManager';
 import { FileHeatManager } from '../managers/fileHeatManager';
 import { BookmarkManager, Bookmark } from '../managers/bookmarkManager';
 
@@ -164,10 +164,17 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
 
         // 处理所有注释，包括未匹配的
         for (const comment of allComments) {
+            // 跳过共享注释，暂时不在注释树中显示
+            const isSharedComment = 'userId' in comment;
+            if (isSharedComment) {
+                continue; // 跳过共享注释
+            }
+            
             // 使用Map快速查找匹配的注释
             const matchedComment = matchedCommentsMap.get(comment.id);
             const isMatchable = matchedComment !== undefined;
             
+            // 构建标签
             const label = `第${(matchedComment?.line || comment.line) + 1}行: ${comment.content}`;
             
             const commentNode = new CommentTreeItem(
@@ -304,7 +311,7 @@ export class CommentTreeItem extends vscode.TreeItem {
     }
 
     filePath?: string;
-    comment?: LocalComment;
+    comment?: LocalComment | SharedComment;
     bookmark?: Bookmark;
 }
 

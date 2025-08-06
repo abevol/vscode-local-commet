@@ -164,6 +164,31 @@ export function activate(context: vscode.ExtensionContext) {
     } else {
         const user = authManager.getCurrentUser();
         console.log(`用户已登录: ${user?.username}`);
+        
+        // 如果用户已登录，尝试自动加载共享注释
+        setTimeout(async () => {
+            try {
+                const associatedProjectId = projectManager.getAssociatedProject();
+                if (associatedProjectId) {
+                    const projectId = parseInt(associatedProjectId, 10);
+                    if (!isNaN(projectId)) {
+                        console.log(`🔄 自动加载项目 ${projectId} 的共享注释...`);
+                        const sharedComments = await commentManager.getProjectSharedComments(projectId);
+                        if (sharedComments && sharedComments.length > 0) {
+                            console.log(`✅ 自动加载了 ${sharedComments.length} 条共享注释`);
+                            // 刷新注释显示
+                            commentProvider.refresh();
+                        } else {
+                            console.log('ℹ️ 项目中没有共享注释');
+                        }
+                    }
+                } else {
+                    console.log('ℹ️ 用户未关联项目，跳过自动加载共享注释');
+                }
+            } catch (error) {
+                console.error('自动加载共享注释失败:', error);
+            }
+        }, 1000); // 延迟1秒执行，确保其他初始化完成
     }
 
     // 监听编辑器变化

@@ -115,52 +115,61 @@ export class CommentProvider implements vscode.Disposable {
             return;
         }
 
+        // 拿到所有能匹配到的注释
         const comments = this.commentManager.getComments(editor.document.uri);
         
         const normalDecorations: vscode.DecorationOptions[] = [];
-        const tagDecorations: vscode.DecorationOptions[] = [];
 
-        for (const comment of comments) {
-            // 确保行号在有效范围内
-            if (comment.line >= 0 && comment.line < editor.document.lineCount) {
-                const line = editor.document.lineAt(comment.line);
-                
-                // 创建分段装饰
-                const decorations = this.createSegmentedDecorations(comment, line, editor);
-                normalDecorations.push(...decorations.normal);
-                tagDecorations.push(...decorations.tags);
-            }
+        // 按行号分组注释
+        const commentsByLine = this.groupCommentsByLine(comments, editor.document.lineCount);
+
+        // 处理每一行的注释
+        for (const [lineNumber, lineComments] of commentsByLine) {
+            const line = editor.document.lineAt(lineNumber);
+            
+            // 为每一行只创建一个装饰器，包含该行的所有注释
+            const decoration = this.createSingleDecoration(lineComments, line, editor);
+            normalDecorations.push(decoration);
         }
 
         editor.setDecorations(this.decorationType, normalDecorations);
-        editor.setDecorations(this.tagDecorationType, tagDecorations);
     }
 
-    private createSegmentedDecorations(comment: LocalComment | SharedComment, line: vscode.TextLine, editor: vscode.TextEditor): {normal: vscode.DecorationOptions[], tags: vscode.DecorationOptions[]} {
-        const normal: vscode.DecorationOptions[] = [];
-        const tags: vscode.DecorationOptions[] = [];
+    // 创建注释的装饰器
+    private createSingleDecoration(comments: (LocalComment | SharedComment)[], line: vscode.TextLine, editor: vscode.TextEditor): vscode.DecorationOptions {
         const lineLength = line.text.length;
         
-        // 判断是否为共享注释
-        const isSharedComment = 'userId' in comment;
+        // 分离本地注释和共享注释
+        const localComments = comments.filter(comment => !('userId' in comment));
+        const sharedComments = comments.filter(comment => 'userId' in comment);
         
-        // 根据注释类型设置不同的样式
-        let contentText = ` ${comment.content}`;
+        // 构建显示文本
+        let contentText = '';
         let color = '#6B7283'; // 默认灰蓝色
         let fontStyle = 'italic';
         let margin = '0 0 0 0.8em';
         
-        if (isSharedComment) {
-            // 共享注释使用不同的样式
-            contentText = ` 🔗 ${comment.content}`; // 添加共享图标
-            color = '#3B82F6'; // 蓝色，表示共享
-            fontStyle = 'italic';
-            margin = '0 0 0 0.8em';
+        // 如果有本地注释，优先显示本地注释
+        if (localComments.length > 0) {
+            const localComment = localComments[0]; // 只显示第一条本地注释
+            contentText = ` ${localComment.content}`;
+            color = '#6B7283'; // 灰蓝色
+        } else if (sharedComments.length > 0) {
+            // 如果没有本地注释但有共享注释，显示共享注释
+            const sharedComment = sharedComments[0]; // 只显示第一条共享注释
+            contentText = ` 🔗 ${sharedComment.content}`;
+            color = '#3B82F6'; // 蓝色
+        }
+        
+        // 如果有多个注释，添加计数指示器
+        const totalComments = localComments.length + sharedComments.length;
+        if (totalComments > 1) {
+            contentText += ` (+${totalComments - 1})`;
         }
         
         // 创建装饰选项
         const decoration: vscode.DecorationOptions = {
-            range: new vscode.Range(comment.line, lineLength, comment.line, lineLength),
+            range: new vscode.Range(line.lineNumber, lineLength, line.lineNumber, lineLength),
             renderOptions: {
                 after: {
                     contentText: contentText,
@@ -171,10 +180,7 @@ export class CommentProvider implements vscode.Disposable {
             }
         };
         
-        // 所有注释都放到normal数组中
-        normal.push(decoration);
-        
-        return { normal, tags };
+        return decoration;
     }
 
     private parseCommentIntoSegments(content: string): Array<{text: string, isTag: boolean}> {
@@ -239,6 +245,44 @@ export class CommentProvider implements vscode.Disposable {
         return tags;
     }
 
+    /**
+     * 按行号分组注释
+     * 
+     * @param comments 注释数组
+     * @param documentLineCount 文档总行数
+     * @returns 按行号分组的注释Map
+     * 
+     * @example
+     * 假设有以下注释：
+     * - 第5行：本地注释A
+     * - 第5行：共享注释B
+     * - 第10行：本地注释C
+     * - 第15行：共享注释D
+     * 
+     * 分组后的结果：
+     * ```typescript
+     * commentsByLine = {
+     *   5: [本地注释A, 共享注释B],
+     *   10: [本地注释C], 
+     *   15: [共享注释D]
+     * }
+     * ```
+     */
+    private groupCommentsByLine(comments: (LocalComment | SharedComment)[], documentLineCount: number): Map<number, (LocalComment | SharedComment)[]> {
+        const commentsByLine = new Map<number, (LocalComment | SharedComment)[]>();
+        
+        for (const comment of comments) {
+            if (comment.line >= 0 && comment.line < documentLineCount) {
+                if (!commentsByLine.has(comment.line)) {
+                    commentsByLine.set(comment.line, []);
+                }
+                commentsByLine.get(comment.line)!.push(comment);
+            }
+        }
+        
+        return commentsByLine;
+    }
+
     private clearDecorations(): void {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
@@ -277,9 +321,40 @@ export class CommentProvider implements vscode.Disposable {
 
         const line = position.line;
         const comments = this.commentManager.getComments(document.uri);
-        const comment = comments.find(c => c.line === line);
+        const lineComments = comments.filter(c => c.line === line);
+        
+        // 添加调试信息
+        console.log('🔍 Hover调试信息:', {
+            line,
+            totalComments: comments.length,
+            lineCommentsCount: lineComments.length,
+            lineComments: lineComments.map(c => ({
+                id: c.id,
+                type: 'userId' in c ? 'SharedComment' : 'LocalComment',
+                content: c.content.substring(0, 50) + '...',
+                userId: 'userId' in c ? c.userId : 'N/A'
+            }))
+        });
+        
+        // 检查所有注释的存储状态
+        const allComments = this.commentManager.getAllComments();
+        const filePath = document.uri.fsPath;
+        const storedComments = allComments[filePath] || [];
+        console.log('🔍 存储状态调试信息:', {
+            filePath,
+            storedCommentsCount: storedComments.length,
+            storedComments: storedComments.map(c => ({
+                id: c.id,
+                type: 'userId' in c ? 'SharedComment' : 'LocalComment',
+                line: c.line,
+                content: c.content.substring(0, 30) + '...',
+                userId: 'userId' in c ? c.userId : 'N/A'
+            }))
+        });
 
-        if (comment) {
+
+
+        if (lineComments.length > 0) {
             // 使用预加载的图标URIs，如果没有加载完成则跳过图标显示
             const editIconUri = this.editIconUri || '';
             const deleteIconUri = this.deleteIconUri || '';
@@ -289,116 +364,77 @@ export class CommentProvider implements vscode.Disposable {
             markdownContent.isTrusted = true;
             markdownContent.supportHtml = true;
             
-            // 处理用户输入的转义字符
-            const processedContent = this.processMarkdownContent(comment.content);
+            // 分离本地注释和共享注释
+            const localComments = lineComments.filter(comment => !('userId' in comment));
+            const sharedComments = lineComments.filter(comment => 'userId' in comment);
             
-            // 判断是否为共享注释
-            const isSharedComment = 'userId' in comment;
+
             
-            // 构建Markdown内容
-            if (isSharedComment) {
-                const sharedComment = comment as SharedComment;
-                markdownContent.appendMarkdown(`**共享注释**\n\n`);
+            // 显示本地注释
+            for (let i = 0; i < localComments.length; i++) {
+                const comment = localComments[i];
                 
-                // 显示用户信息
-                if (sharedComment.username) {
-                    // 如果有用户头像，显示头像和用户名
-                    if (sharedComment.userAvatar) {
-                        // 获取API基础URL并拼接完整的头像URL
-                        const apiBaseUrl = this.getApiBaseUrl();
-                        let avatarUrl = sharedComment.userAvatar;
-                        
-                        // 如果avatar是相对路径，需要拼接API基础URL
-                        if (avatarUrl && !avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://') && !avatarUrl.startsWith('data:')) {
-                            // 确保avatar路径以/开头
-                            if (!avatarUrl.startsWith('/')) {
-                                avatarUrl = '/' + avatarUrl;
-                            }
-                            avatarUrl = apiBaseUrl + avatarUrl;
-                        }
-                        
-                                                 // 尝试获取头像并转换为base64，如果失败则使用VSCode内置图标
-                         try {
-                             const imageData = await this.fetchImageAsBase64(avatarUrl);
-                             if (imageData) {
-                                 markdownContent.appendMarkdown(`<img src="${imageData}" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;" alt="用户头像" />`);
-                                 markdownContent.appendMarkdown(`**用户**: ${sharedComment.username}\n\n`);
-                             } else {
-                                 // 如果获取失败，使用VSCode内置图标
-                                 markdownContent.appendMarkdown(`$(account) **用户**: ${sharedComment.username}\n\n`);
-                             }
-                         } catch (error) {
-                             console.error('获取头像失败:', error);
-                             // 使用VSCode内置图标作为备选
-                             markdownContent.appendMarkdown(`$(account) **用户**: ${sharedComment.username}\n\n`);
-                         }
-                    } else {
-                        markdownContent.appendMarkdown(`**用户**: ${sharedComment.username}\n\n`);
-                    }
-                } else {
-                    markdownContent.appendMarkdown(`**用户ID**: ${sharedComment.userId}\n\n`);
+                if (i > 0) {
+                    markdownContent.appendMarkdown(`---\n\n`);
                 }
-            } else {
+                
                 markdownContent.appendMarkdown(`**本地注释**\n\n`);
-            }
-            
-            // 将注释内容中的@标签转换为可点击的链接
-            const segments = this.parseCommentIntoSegments(processedContent);
-            let enhancedContent = '';
-            
-            for (const segment of segments) {
-                if (segment.isTag && segment.text.startsWith('@')) {
-                    // 提取标签名（去掉@符号）
-                    const tagName = segment.text.substring(1);
-                    // 创建可点击链接
-                    enhancedContent += `[${segment.text}](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})`;
-                } else {
-                    // 普通文本直接添加
-                    enhancedContent += segment.text;
-                }
-            }
-            
-            markdownContent.appendMarkdown(enhancedContent);
-            markdownContent.appendMarkdown(`\n\n`);
-            
-            // 添加标签信息部分并进行去重
-            const tags = this.extractTagsFromContent(comment.content);
-            if (tags.length > 0) {
-                // 使用Set进行去重
-                const declarationTags = new Set<string>();
-                const referenceTags = new Set<string>();
                 
-                // 收集唯一标签
-                for (const tag of tags) {
-                    if (tag.type === 'declaration') {
-                        declarationTags.add(tag.text);
+                // 处理用户输入的转义字符
+                const processedContent = this.processMarkdownContent(comment.content);
+                
+                // 将注释内容中的@标签转换为可点击的链接
+                const segments = this.parseCommentIntoSegments(processedContent);
+                let enhancedContent = '';
+                
+                for (const segment of segments) {
+                    if (segment.isTag && segment.text.startsWith('@')) {
+                        // 提取标签名（去掉@符号）
+                        const tagName = segment.text.substring(1);
+                        // 创建可点击链接
+                        enhancedContent += `[${segment.text}](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})`;
                     } else {
-                        referenceTags.add(tag.text);
+                        // 普通文本直接添加
+                        enhancedContent += segment.text;
                     }
                 }
                 
-                markdownContent.appendMarkdown(`**标签信息**\n\n`);
+                markdownContent.appendMarkdown(enhancedContent);
+                markdownContent.appendMarkdown(`\n\n`);
                 
-                // 处理声明标签
-                for (const tagText of declarationTags) {
-                    markdownContent.appendMarkdown(`️**声明**: \`${tagText}\`\n\n`);
+                // 添加标签信息部分并进行去重
+                const tags = this.extractTagsFromContent(comment.content);
+                if (tags.length > 0) {
+                    // 使用Set进行去重
+                    const declarationTags = new Set<string>();
+                    const referenceTags = new Set<string>();
+                    
+                    // 收集唯一标签
+                    for (const tag of tags) {
+                        if (tag.type === 'declaration') {
+                            declarationTags.add(tag.text);
+                        } else {
+                            referenceTags.add(tag.text);
+                        }
+                    }
+                    
+                    markdownContent.appendMarkdown(`**标签信息**\n\n`);
+                    
+                    // 处理声明标签
+                    for (const tagText of declarationTags) {
+                        markdownContent.appendMarkdown(`️**声明**: \`${tagText}\`\n\n`);
+                    }
+                    
+                    // 处理引用标签
+                    for (const tagText of referenceTags) {
+                        const tagName = tagText.substring(1);
+                        markdownContent.appendMarkdown(`**引用**: \`${tagText}\` - [跳转到声明](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})\n\n`);
+                    }
                 }
                 
-                // 处理引用标签
-                for (const tagText of referenceTags) {
-                    const tagName = tagText.substring(1);
-                    markdownContent.appendMarkdown(`**引用**: \`${tagText}\` - [跳转到声明](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})\n\n`);
-                }
-            }
-            
-            markdownContent.appendMarkdown(`---\n`);
-            markdownContent.appendMarkdown(`*${new Date(comment.timestamp).toLocaleString()}*\n\n`);
-            
-            // 根据注释类型添加不同的操作按钮
-            if (isSharedComment) {
-                // 共享注释只显示查看信息，不提供编辑功能
-                markdownContent.appendMarkdown(` **共享注释** - 此注释来自其他用户`);
-            } else {
+                markdownContent.appendMarkdown(`---\n`);
+                markdownContent.appendMarkdown(`*${new Date(comment.timestamp).toLocaleString()}*\n\n`);
+                
                 // 本地注释显示完整的操作按钮
                 const editArgs = JSON.stringify({
                     uri: document.uri.toString(),
@@ -419,6 +455,116 @@ export class CommentProvider implements vscode.Disposable {
                 markdownContent.appendMarkdown(`[${editIcon} 编辑](command:localComment.quickEditCommentFromHover?${encodeURIComponent(editArgs)} "快速编辑注释") | `);
                 markdownContent.appendMarkdown(`[${markDownIcon} Markdown编辑](command:localComment.editCommentFromHover?${encodeURIComponent(editArgs)} "多行编辑注释") | `);
                 markdownContent.appendMarkdown(`[${deleteIcon} 删除](command:localComment.removeCommentFromHover?${encodeURIComponent(removeArgs)} "删除注释")`);
+            }
+            
+            // 显示共享注释
+            for (let i = 0; i < sharedComments.length; i++) {
+                const comment = sharedComments[i] as SharedComment;
+                
+                if (localComments.length > 0 || i > 0) {
+                    markdownContent.appendMarkdown(`---\n\n`);
+                }
+                
+                markdownContent.appendMarkdown(`**共享注释**\n\n`);
+                
+                // 显示用户信息
+                if (comment.username) {
+                    // 如果有用户头像，显示头像和用户名
+                    if (comment.userAvatar) {
+                        // 获取API基础URL并拼接完整的头像URL
+                        const apiBaseUrl = this.getApiBaseUrl();
+                        let avatarUrl = comment.userAvatar;
+                        
+                        // 如果avatar是相对路径，需要拼接API基础URL
+                        if (avatarUrl && !avatarUrl.startsWith('http://') && !avatarUrl.startsWith('https://') && !avatarUrl.startsWith('data:')) {
+                            // 确保avatar路径以/开头
+                            if (!avatarUrl.startsWith('/')) {
+                                avatarUrl = '/' + avatarUrl;
+                            }
+                            avatarUrl = apiBaseUrl + avatarUrl;
+                        }
+                        
+                        // 尝试获取头像并转换为base64，如果失败则使用VSCode内置图标
+                        try {
+                            const imageData = await this.fetchImageAsBase64(avatarUrl);
+                            console.log('imageData---------------')
+                            console.log(imageData)
+                            if (imageData) {
+                                markdownContent.appendMarkdown(`<img src="${imageData}" width="20" height="20" style="border-radius: 50%; vertical-align: middle; margin-right: 8px;" alt="用户头像" />`);
+                                markdownContent.appendMarkdown(`**用户**: ${comment.username}\n\n`);
+                            } else {
+                                // 如果获取失败，使用VSCode内置图标
+                                markdownContent.appendMarkdown(`$(account) **用户**: ${comment.username}\n\n`);
+                            }
+                        } catch (error) {
+                            console.error('获取头像失败:', error);
+                            // 使用VSCode内置图标作为备选
+                            markdownContent.appendMarkdown(`$(account) **用户**: ${comment.username}\n\n`);
+                        }
+                    } else {
+                        markdownContent.appendMarkdown(`**用户**: ${comment.username}\n\n`);
+                    }
+                } else {
+                    markdownContent.appendMarkdown(`**用户ID**: ${comment.userId}\n\n`);
+                }
+                
+                // 处理用户输入的转义字符
+                const processedContent = this.processMarkdownContent(comment.content);
+                
+                // 将注释内容中的@标签转换为可点击的链接
+                const segments = this.parseCommentIntoSegments(processedContent);
+                let enhancedContent = '';
+                
+                for (const segment of segments) {
+                    if (segment.isTag && segment.text.startsWith('@')) {
+                        // 提取标签名（去掉@符号）
+                        const tagName = segment.text.substring(1);
+                        // 创建可点击链接
+                        enhancedContent += `[${segment.text}](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})`;
+                    } else {
+                        // 普通文本直接添加
+                        enhancedContent += segment.text;
+                    }
+                }
+                
+                markdownContent.appendMarkdown(enhancedContent);
+                markdownContent.appendMarkdown(`\n\n`);
+                
+                // 添加标签信息部分并进行去重
+                const tags = this.extractTagsFromContent(comment.content);
+                if (tags.length > 0) {
+                    // 使用Set进行去重
+                    const declarationTags = new Set<string>();
+                    const referenceTags = new Set<string>();
+                    
+                    // 收集唯一标签
+                    for (const tag of tags) {
+                        if (tag.type === 'declaration') {
+                            declarationTags.add(tag.text);
+                        } else {
+                            referenceTags.add(tag.text);
+                        }
+                    }
+                    
+                    markdownContent.appendMarkdown(`**标签信息**\n\n`);
+                    
+                    // 处理声明标签
+                    for (const tagText of declarationTags) {
+                        markdownContent.appendMarkdown(`️**声明**: \`${tagText}\`\n\n`);
+                    }
+                    
+                    // 处理引用标签
+                    for (const tagText of referenceTags) {
+                        const tagName = tagText.substring(1);
+                        markdownContent.appendMarkdown(`**引用**: \`${tagText}\` - [跳转到声明](command:localComment.goToTagDeclaration?${encodeURIComponent(JSON.stringify({tagName}))})\n\n`);
+                    }
+                }
+                
+                markdownContent.appendMarkdown(`---\n`);
+                markdownContent.appendMarkdown(`*${new Date(comment.timestamp).toLocaleString()}*\n\n`);
+                
+                // 共享注释只显示查看信息，不提供编辑功能
+                markdownContent.appendMarkdown(`**共享注释** - 此注释来自其他用户`);
             }
             
             return new vscode.Hover(markdownContent);
