@@ -49,5 +49,7 @@
   "showCurrentFileBookmarks": "Show Current File Bookmarks",
   "logout": "Logout",
   "showUserInfo": "Show User Info",
-  "treeViewTitle": "Local Comments"
+  "treeViewTitle": "Local Comments",
+  "sharedCommentsTreeViewTitle": "Shared Comments",
+  "refreshSharedComments": "Refresh Shared Comments"
 } 

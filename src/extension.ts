@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import { CommentManager } from './managers/commentManager';
 import { CommentProvider } from './providers/commentProvider';
 import { CommentTreeProvider } from './providers/commentTreeProvider';
+import { SharedCommentTreeProvider } from './providers/sharedCommentTreeProvider';
 import { TagManager } from './managers/tagManager';
 import { TagCompletionProvider } from './providers/tagCompletionProvider';
 import { TagDefinitionProvider } from './providers/tagDefinitionProvider';
@@ -18,6 +19,7 @@ import { UserInfoWebview } from './modules/userInfoWebview';
 let commentManager: CommentManager;
 let commentProvider: CommentProvider;
 let commentTreeProvider: CommentTreeProvider;
+let sharedCommentTreeProvider: SharedCommentTreeProvider;
 let tagManager: TagManager;
 let fileHeatManager: FileHeatManager;
 let bookmarkManager: BookmarkManager;
@@ -58,6 +60,7 @@ export function activate(context: vscode.ExtensionContext) {
     bookmarkManager = new BookmarkManager(context);
     bookmarkDecorationProvider = new BookmarkDecorationProvider(bookmarkManager);
     commentTreeProvider = new CommentTreeProvider(commentManager, fileHeatManager, bookmarkManager);
+    sharedCommentTreeProvider = new SharedCommentTreeProvider(commentManager);
     tagManager = new TagManager();
     authManager = new AuthManager(context);
     projectManager = new ProjectManager(context);
@@ -142,11 +145,18 @@ export function activate(context: vscode.ExtensionContext) {
         showCollapseAll: true
     });
 
+    // 注册共享注释树视图
+    const sharedTreeView = vscode.window.createTreeView('sharedComments', {
+        treeDataProvider: sharedCommentTreeProvider,
+        showCollapseAll: true
+    });
+
     // 初始化时等待编辑器准备就绪
     if (vscode.window.activeTextEditor) {
         // 如果已经有活动的编辑器，立即刷新
         commentProvider.refresh();
         commentTreeProvider.refresh(); // 初始化时可以完整刷新
+        sharedCommentTreeProvider.refresh(); // 初始化共享注释树视图
     }
 
     // 创建状态栏项
@@ -167,6 +177,7 @@ export function activate(context: vscode.ExtensionContext) {
                 // 刷新注释显示
                 commentProvider.refresh();
                 commentTreeProvider.refresh();
+                sharedCommentTreeProvider.refresh();
             } catch (error) {
                 console.error('清除共享注释失败:', error);
             }
@@ -187,6 +198,7 @@ export function activate(context: vscode.ExtensionContext) {
                             // 刷新注释显示
                             commentProvider.refresh();
                             commentTreeProvider.refresh();
+                            sharedCommentTreeProvider.refresh();
                         } else {
                             console.log('ℹ️ 项目中没有共享注释');
                         }

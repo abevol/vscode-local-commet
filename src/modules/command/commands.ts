@@ -845,6 +845,49 @@ export function registerCommands(
         }
     });
 
+    // 刷新共享注释命令
+    const refreshSharedCommentsCommand = vscode.commands.registerCommand('localComment.refreshSharedComments', async () => {
+        try {
+            if (!authManager || !authManager.isLoggedIn()) {
+                vscode.window.showWarningMessage('请先登录以刷新共享注释');
+                return;
+            }
+
+            const associatedProjectId = commentManager.getContext().workspaceState.get('associatedProjectId') as string;
+            if (!associatedProjectId) {
+                vscode.window.showWarningMessage('请先关联项目以刷新共享注释');
+                return;
+            }
+
+            const projectId = parseInt(associatedProjectId, 10);
+            if (isNaN(projectId)) {
+                vscode.window.showWarningMessage('项目ID无效');
+                return;
+            }
+
+            vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: '正在刷新共享注释...',
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0, message: '正在从服务器获取共享注释...' });
+                
+                const sharedComments = await commentManager.getProjectSharedComments(projectId);
+                
+                progress.report({ increment: 100, message: '刷新完成！' });
+
+                if (sharedComments && sharedComments.length > 0) {
+                    vscode.window.showInformationMessage(`成功刷新了 ${sharedComments.length} 条共享注释`);
+                } else {
+                    vscode.window.showInformationMessage('项目中没有共享注释');
+                }
+            });
+        } catch (error) {
+            console.error('刷新共享注释失败:', error);
+            vscode.window.showErrorMessage(`刷新共享注释失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    });
+
     // 注册comment.ts中的命令
     const commentCommands = registerCommentCommands(commentManager, tagManager, commentProvider, commentTreeProvider, context);
 
@@ -861,6 +904,7 @@ export function registerCommands(
         importCommentsCommand,
         // 认证相关命令
         logoutCommand,
+        refreshSharedCommentsCommand,
         ...commentCommands,
         ...bookmarkCommands,
     ];

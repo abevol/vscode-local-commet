@@ -48,6 +48,10 @@ export class CommentManager {
     private context: vscode.ExtensionContext;
     private _hasKeyboardActivity = false; // 记录键盘活动状态，用于区分用户编辑和Git分支切换
     private commentMatcher: CommentMatcher; // 注释匹配器
+    
+    // 事件发射器，用于通知注释变化
+    private _onDidChangeComments: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
+    readonly onDidChangeComments: vscode.Event<void> = this._onDidChangeComments.event;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
@@ -220,6 +224,9 @@ export class CommentManager {
             };
             
             fs.writeFileSync(this.storageFile, JSON.stringify(dataToSave, null, 2));
+            
+            // 触发注释变化事件
+            this._onDidChangeComments.fire();
         } catch (error) {
             console.error('保存注释失败:', error);
         }
@@ -257,9 +264,10 @@ export class CommentManager {
             console.log(`替换第 ${line + 1} 行的本地注释`);
         } else {
             // 检查是否有共享注释在同一行
-            const existingSharedComments = this.shareComments[filePath]?.filter(c => 
-                c.line === line
-            ) || [];
+            const allSharedComments = this.shareComments[filePath] || [];
+            const existingSharedComments = allSharedComments.filter((comment): comment is SharedComment => 
+                'userId' in comment && comment.line === line
+            );
             
             if (existingSharedComments.length > 0) {
                 console.log(`第 ${line + 1} 行已有 ${existingSharedComments.length} 条共享注释，添加本地注释`);
@@ -380,8 +388,13 @@ export class CommentManager {
         let totalRemoved = 0;
 
         // 遍历所有文件，移除共享注释
-        for (const [filePath, sharedComments] of Object.entries(this.shareComments)) {
-            if (!Array.isArray(sharedComments)) continue;
+        for (const [filePath, allComments] of Object.entries(this.shareComments)) {
+            if (!Array.isArray(allComments)) continue;
+
+            // 过滤出只有SharedComment类型的数据
+            const sharedComments = allComments.filter((comment): comment is SharedComment => 
+                'userId' in comment
+            );
 
             totalRemoved += sharedComments.length;
             console.log(`已从 ${filePath} 移除 ${sharedComments.length} 个共享注释`);
@@ -419,12 +432,17 @@ export class CommentManager {
     public async clearFileSharedComments(uri: vscode.Uri): Promise<number> {
         const filePath = uri.fsPath;
         
-        if (!this.shareComments[filePath] || this.shareComments[filePath].length === 0) {
+        const allComments = this.shareComments[filePath] || [];
+        // 过滤出只有SharedComment类型的数据
+        const sharedComments = allComments.filter((comment): comment is SharedComment => 
+            'userId' in comment
+        );
+        
+        if (sharedComments.length === 0) {
             vscode.window.showWarningMessage('该文件没有共享注释');
             return 0;
         }
 
-        const sharedComments = this.shareComments[filePath];
         const removedCount = sharedComments.length;
 
         // 删除该文件的共享注释
@@ -454,7 +472,12 @@ export class CommentManager {
     public getComments(uri: vscode.Uri): (LocalComment | SharedComment)[] {
         const filePath = uri.fsPath;
         const localComments = this.comments[filePath] || [];
-        const sharedComments = this.shareComments[filePath] || [];
+        
+        // 从shareComments中过滤出只有SharedComment类型的数据
+        const allSharedComments = this.shareComments[filePath] || [];
+        const sharedComments = allSharedComments.filter((comment): comment is SharedComment => 
+            'userId' in comment
+        );
         
         // 合并本地注释和共享注释
         const allComments = [...localComments, ...sharedComments];
@@ -789,11 +812,38 @@ export class CommentManager {
         
         for (const filePath of allFilePaths) {
             const localComments = this.comments[filePath] || [];
-            const sharedComments = this.shareComments[filePath] || [];
+            
+            // 从shareComments中过滤出只有SharedComment类型的数据
+            const allSharedComments = this.shareComments[filePath] || [];
+            const sharedComments = allSharedComments.filter((comment): comment is SharedComment => 
+                'userId' in comment
+            );
+            
             allComments[filePath] = [...localComments, ...sharedComments];
         }
         
         return allComments;
+    }
+
+    /**
+     * 获取所有共享注释
+     */
+    public getAllSharedComments(): { [filePath: string]: SharedComment[] } {
+        // 确保只返回SharedComment类型的数据
+        const result: { [filePath: string]: SharedComment[] } = {};
+        
+        for (const [filePath, comments] of Object.entries(this.shareComments)) {
+            // 过滤出只有SharedComment类型的数据
+            const sharedComments = comments.filter((comment): comment is SharedComment => 
+                'userId' in comment
+            );
+            
+            if (sharedComments.length > 0) {
+                result[filePath] = sharedComments;
+            }
+        }
+        
+        return result;
     }
 
     public getStorageFilePath(): string {
