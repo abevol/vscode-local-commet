@@ -3,6 +3,31 @@
     const textarea = document.getElementById('contentInput');
     const previewArea = document.getElementById('previewArea');
     let previewVisible = false;
+    let markedInitialized = false;
+    let mermaidInitialized = false;
+
+    // 防抖函数
+    function debounce(func, wait) {
+        let timeout;
+        return function executedFunction(...args) {
+            const later = () => {
+                clearTimeout(timeout);
+                func(...args);
+            };
+            clearTimeout(timeout);
+            timeout = setTimeout(later, wait);
+        };
+    }
+
+    // 全局、一次性的初始化任务
+    const initializationPromise = Promise.all([waitForMarked(), waitForMermaid()])
+        .catch(error => {
+            console.error("关键库初始化失败:", error);
+            // 可以在预览区域显示一个永久性的错误
+            previewArea.innerHTML = `<p style="color:red;">预览组件加载失败: ${error.message}</p>`;
+            // 抛出错误以防止后续操作执行
+            throw error;
+        });
     
     // Tab切换功能
     let currentTab = 'code-tab';
@@ -39,8 +64,6 @@
     }
     
     // 初始化marked
-    let markedInitialized = false;
-    
     function initializeMarked() {
         if (typeof marked !== 'undefined' && !markedInitialized) {
             marked.setOptions({
@@ -68,6 +91,67 @@
         });
     }
 
+    // 初始化mermaid
+    function initializeMermaid() {
+        if (typeof mermaid !== 'undefined' && !mermaidInitialized) {
+            mermaid.initialize({
+                startOnLoad: false,
+                theme: 'default',
+                flowchart: {
+                    useMaxWidth: true,
+                    htmlLabels: true
+                },
+                sequence: {
+                    useMaxWidth: true
+                },
+                gantt: {
+                    useMaxWidth: true
+                }
+            });
+            mermaidInitialized = true;
+            return true;
+        }
+        return false;
+    }
+
+    // 等待mermaid库加载完成
+    function waitForMermaid() {
+        return new Promise((resolve, reject) => {
+            if (mermaidInitialized) {
+                resolve();
+                return;
+            }
+            let attempts = 0;
+            const maxAttempts = 50; // 最多等待5秒
+            
+            const checkMermaid = () => {
+                if (mermaidInitialized) {
+                    resolve();
+                    return;
+                }
+
+                attempts++;
+                
+                if (typeof mermaid !== 'undefined') {
+                    if (initializeMermaid()) {
+                        console.log('mermaid库初始化成功');
+                        resolve();
+                    }
+                } else {
+                    console.log('等待mermaid库加载...', attempts);
+                    if (attempts >= maxAttempts) {
+                        reject(new Error('mermaid库加载超时'));
+                    } else {
+                        setTimeout(checkMermaid, 100);
+                    }
+                }
+            };
+            checkMermaid();
+        });
+    }
+
+
+
     // 更新预览内容
     async function updatePreview(content) {
         try {
@@ -75,24 +159,58 @@
                 previewArea.innerHTML = '<p>没有内容可预览</p>';
                 return;
             }
+
+            // 等待关键库初始化完成
+            await initializationPromise;
+
+            // 1. 预处理Markdown，例如高亮@标签
+            let processedContent = content.replace(/@([a-zA-Z0-9_]+)/g, '<span style="color: var(--vscode-symbolIcon-functionForeground); font-weight: bold;">@$1</span>');
+
+            // 2. 查找所有的Mermaid代码块
+            const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
+            const mermaidBlocks = [...processedContent.matchAll(mermaidRegex)];
+            console.log(`找到 ${mermaidBlocks.length} 个Mermaid代码块`);
+
+            // 3. 异步渲染所有的Mermaid图表为SVG字符串
+            const svgPromises = mermaidBlocks.map(async (match, index) => {
+                const chartDefinition = match[1].trim();
+                const chartId = `mermaid-chart-${Date.now()}-${index}`;
+                try {
+                    console.log(`开始在内存中渲染图表: ${chartId}`);
+                    const { svg } = await mermaid.render(chartId, chartDefinition);
+                    console.log(`成功渲染图表: ${chartId}`);
+                    // 将SVG包裹在一个div中，方便设置样式
+                    return `<div class="mermaid-chart">${svg}</div>`;
+                } catch (error) {
+                    console.error(`渲染Mermaid图表失败: ${chartId}`, error);
+                    return `<div class="mermaid-error">图表渲染失败: ${error.message}<pre>${chartDefinition}</pre></div>`;
+                }
+            });
+
+            const renderedSvgs = await Promise.all(svgPromises);
+
+            // 4. 将渲染好的SVG替换回Markdown内容中
+            let finalContent = processedContent;
+            let svgIndex = 0;
+            finalContent = finalContent.replace(mermaidRegex, () => {
+                return renderedSvgs[svgIndex++];
+            });
+
+            // 5. 使用marked将整个内容（包括已插入的SVG）转换为HTML
+            const finalHtml = marked.parse(finalContent);
             
-            // 将@标签转换为高亮样式
-            const highlightedContent = content.replace(/@([a-zA-Z0-9_]+)/g, '<span style="color: var(--vscode-symbolIcon-functionForeground); font-weight: bold;">@$1</span>');
-            
-            // 确保marked已经加载并初始化
-            if (!markedInitialized) {
-                await waitForMarked();
-            }
-            
-            if (typeof marked === 'undefined') {
-                console.error('marked库未加载');
-                previewArea.innerHTML = '<p>正在加载预览功能...</p>';
-                return;
-            }
-            
-            // 转换Markdown为HTML
-            const htmlContent = marked.parse(highlightedContent);
-            previewArea.innerHTML = htmlContent || '<p>没有内容可预览</p>';
+            // 6. 一次性更新DOM
+            previewArea.innerHTML = finalHtml || '<p>预览生成失败</p>';
+            console.log("预览区域已使用包含SVG的完整HTML更新。");
+
+            // 7. 检查最终结果
+            const allMermaidCharts = previewArea.querySelectorAll('.mermaid-chart');
+            console.log(`最终在DOM中找到 ${allMermaidCharts.length} 个Mermaid图表容器`);
+            allMermaidCharts.forEach((chart, index) => {
+                const rect = chart.getBoundingClientRect();
+                console.log(`图表 ${index + 1} (${chart.id}) 尺寸: width=${rect.width}, height=${rect.height}`);
+            });
+
         } catch (error) {
             console.error('预览更新失败:', error);
             previewArea.innerHTML = '<p>预览生成失败，请重试</p>';
@@ -445,11 +563,13 @@
         hideAutocomplete();
     }
     
+    const debouncedUpdatePreview = debounce(updatePreview, 500);
+
     textarea.addEventListener('input', function(e) {
         // 如果当前在预览tab，实时更新预览
         if (currentTab === 'preview-tab') {
             const content = e.target.value;
-            updatePreview(content);
+            debouncedUpdatePreview(content);
         }
         
         const cursorPos = e.target.selectionStart;

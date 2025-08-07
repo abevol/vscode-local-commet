@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} https: http: data: svg: blob:; connect-src 'none'; font-src 'none'; object-src 'none'; media-src 'none'; frame-src 'none';">
     <title>本地注释输入</title>
     <link rel="stylesheet" href="${cssUri}">
 </head>
@@ -37,10 +38,52 @@
     </div>
 
     <script src="${markedJsUri}" onerror="console.error('marked.js 加载失败')"></script>
+    <script src="${mermaidJsUri}" onerror="console.error('mermaid.js 加载失败')"></script>
     <script>
         // 将标签建议传递给主脚本
         window.tagSuggestions = '${tagSuggestions}';
     </script>
     <script src="${jsUri}"></script>
+    <style>
+        /* Mermaid图表基础样式 - 使用!important确保优先级 */
+        .mermaid-chart {
+            display: block !important;
+            width: 100% !important;
+            overflow: visible !important;
+            margin: 1em 0 !important;
+            padding: 10px !important;
+            background: var(--vscode-editor-background) !important;
+            border: 1px solid var(--vscode-editorWidget-border) !important;
+            border-radius: 4px !important;
+            box-sizing: border-box !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 1 !important;
+        }
+        
+        .mermaid-chart svg,
+        .mermaid-chart img {
+            display: block !important;
+            width: 100% !important;
+            height: auto !important;
+            min-height: 200px !important;
+            background: white !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            position: relative !important;
+            z-index: 2 !important;
+            max-width: 100% !important;
+            border-radius: 4px !important;
+        }
+        
+        .mermaid-error {
+            color: var(--vscode-errorForeground);
+            background: var(--vscode-inputValidation-errorBackground);
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
 </body>
 </html> 

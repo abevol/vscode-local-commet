@@ -94,7 +94,10 @@ export async function showMarkdownWebviewInput(
                 localResourceRoots: [
                     vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs'),
                     vscode.Uri.joinPath(context.extensionUri, 'src', 'lib')
-                ]
+                ],
+                // 添加对SVG的支持
+                enableCommandUris: false,
+                enableFindWidget: false
             }
         );
 
@@ -107,12 +110,15 @@ export async function showMarkdownWebviewInput(
         
         const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.js');
         const jsUri = panel.webview.asWebviewUri(jsPath);
+        
+        const mermaidJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'mermaid.min.js');
+        const mermaidJsUri = panel.webview.asWebviewUri(mermaidJsPath);
 
         // 优化：先显示面板，使用空的标签建议，后续异步加载
         const tagSuggestions = ''; // 先使用空字符串，后续异步更新
 
         // HTML内容
-        panel.webview.html = getMarkdownWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), tagSuggestions, isUserLoggedIn, isCommentShared);
+        panel.webview.html = getMarkdownWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), mermaidJsUri.toString(), tagSuggestions, isUserLoggedIn, isCommentShared, panel.webview);
 
         // 异步加载标签建议和代码上下文，避免阻塞界面显示
         setTimeout(async () => {
@@ -318,9 +324,11 @@ function getMarkdownWebviewContent(
     markedJsUri: string = '',
     cssUri: string = '',
     jsUri: string = '',
+    mermaidJsUri: string = '',
     tagSuggestions: string = '',
     isUserLoggedIn: boolean = false,
-    isCommentShared: boolean = false
+    isCommentShared: boolean = false,
+    webview?: vscode.Webview // 添加webview参数
 ): string {
     // HTML转义函数
     const escapeHtml = (text: string): string => {
@@ -331,6 +339,9 @@ function getMarkdownWebviewContent(
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
     };
+
+    // 生成nonce用于CSP
+    const nonce = getNonce();
 
     // 构建上下文信息HTML（总是显示，即使没有contextInfo）
     let contextHtml = '';
@@ -446,7 +457,7 @@ function getMarkdownWebviewContent(
     
     // Markdown预览tab内容
     contextHtml += '<div id="preview-tab" class="tab-content">';
-    contextHtml += '<div id="previewArea" class="preview-area">点击"预览 Markdown"按钮查看预览</div>';
+    contextHtml += '<div id="previewArea" class="preview-area"></div>';
     contextHtml += '</div>'; // 结束预览tab内容
     
     contextHtml += '</div>'; // 结束context-tabs
@@ -461,7 +472,9 @@ function getMarkdownWebviewContent(
         markedJsUri: markedJsUri || '',
         cssUri: cssUri || '',
         jsUri: jsUri || '',
+        mermaidJsUri: mermaidJsUri || '',
         tagSuggestions: tagSuggestions,
+        cspSource: webview ? webview.cspSource : "'self'", // 从webview获取CSP源
         shareButtonHtml: (isUserLoggedIn && !isCommentShared) ? 
             `<button class="share-btn" onclick="share()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
@@ -484,4 +497,14 @@ function getMarkdownWebviewContent(
     });
 
     return template;
+} 
+
+// 添加getNonce函数
+function getNonce() {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
+    }
+    return text;
 } 

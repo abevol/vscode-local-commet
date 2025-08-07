@@ -12,7 +12,7 @@ build/
 *.js
 *.js.map
 *.d.ts
-!src/lib/marked.min.js
+!src/lib/*.js
 !webpack.config.js
 !gulpfile.js
 !src/templates/**

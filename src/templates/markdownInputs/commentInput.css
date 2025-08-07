@@ -391,4 +391,74 @@ button {
     overflow-y: auto;
     font-size: 13px;
     line-height: 1.5;
+}
+
+/* Mermaid图表样式 */
+.mermaid-chart {
+    margin: 16px 0;
+    padding: 12px;
+    background-color: var(--vscode-textCodeBlock-background);
+    border: 1px solid var(--vscode-textBlockQuote-border);
+    border-radius: 4px;
+    text-align: center;
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.mermaid-chart svg {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 0 auto;
+}
+
+/* Mermaid图表错误样式 */
+.mermaid-error {
+    margin: 16px 0;
+    padding: 12px;
+    background-color: var(--vscode-inputValidation-errorBackground);
+    border: 1px solid var(--vscode-inputValidation-errorBorder);
+    border-radius: 4px;
+    color: var(--vscode-inputValidation-errorForeground);
+}
+
+.mermaid-error p {
+    margin: 0 0 8px 0;
+    font-weight: bold;
+}
+
+.mermaid-error pre {
+    background-color: var(--vscode-textCodeBlock-background);
+    border: 1px solid var(--vscode-textBlockQuote-border);
+    border-radius: 3px;
+    padding: 8px;
+    margin: 8px 0 0 0;
+    font-family: var(--vscode-editor-font-family);
+    font-size: 12px;
+    overflow-x: auto;
+    color: var(--vscode-textPreformat-foreground);
+}
+
+/* 确保mermaid图表在预览区域中正确显示 */
+#previewArea .mermaid-chart {
+    margin: 8px 0;
+    padding: 8px;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    min-height: 100px;
+    width: 100% !important;
+}
+
+#previewArea .mermaid-chart svg,
+#previewArea .mermaid-chart img {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 100px;
+    background: white !important;
+    max-width: 100% !important;
+    border-radius: 4px !important;
 } 
