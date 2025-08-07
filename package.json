@@ -1,8 +1,8 @@
 {
   "name": "vscode-local-comment",
   "displayName": "Local Comment(本地注释)",
-  "description": "Add local comments or bookmarks in the code, support user-defined tag jumps，support markdown notes. The modification will not affect the original file. (添加本地注释，支持用户标签跳转，markdown笔记。修改不会影响原文件)",
-  "version": "1.1.2",
+  "description": "Add local comments or bookmarks in the code, support user-defined tag jumps，support markdown notes,mermaid flowcharts. The modification will not affect the original file. (添加本地注释，支持用户标签跳转，markdown笔记，mermaid流程图。修改不会影响原文件)",
+  "version": "1.1.3",
   "publisher": "sangliang",
   "author": {
     "name": "SangLiang",
@@ -22,11 +22,11 @@
     "annotation",
     "tag",
     "note",
+    "mermaid",
+    "flowchart",
     "documentation",
     "code-comment",
-    "vscode-extension",
     "productivity",
-    "developer-tools",
     "bookmark"
   ],
   "categories": [
@@ -457,7 +457,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "axios": "^1.11.0",
-    "mermaid": "^11.9.0"
+    "axios": "^1.11.0"
   }
 }

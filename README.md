@@ -2,6 +2,8 @@
 
 A VSCode extension designed for code learning and project development, providing local comments and bookmark features that allow you to add personal notes and markers without modifying source code.
 
+### Support Mermaid Flow-chart！！！【v1.1.3 Feat】
+![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/render_mermaid.png)
 ### Tag Navigation
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/jump.gif)
 ### Markdown Local Comments
@@ -211,6 +213,11 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
+## [1.1.3] - 2025-08-07 
+✨ Support for mermaid flowcharts: Users can now freely use mermaid syntax in markdown comments.
+- 🔨 Fixed some known issues
+🎉 Additional note: In this release, we have actually implemented many features related to multi-person collaborative commenting, but we still need some time to refine the functionality. This is just a functional preview for the next major version.
+
 ## [1.1.2] - 2025-07-24
 - ✨ Added support for saving text with Ctrl+S while editing Markdown.
 - ✨ Added a feature to clear all bookmarks in files in the local comment command.
@@ -337,8 +344,13 @@ MIT License
 
 一个专为代码学习和项目开发设计的 VSCode 扩展，提供本地注释和书签功能，让你在不修改源代码的情况下添加个人笔记和标记。
 
+### Mermaid流程图支持！！！【v1.1.3 特性】
+
+![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/render_mermaid.png)
+
 ### tag跳转
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/jump.gif)
+
 ### markdown本地注释
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/markdown.gif)
 
@@ -548,6 +560,11 @@ emitter.on('data', handler);  // 本地注释: 监听@EventEmitter的data事件
 ## 📝 更新日志
 
 ### 变更日志
+
+## [1.1.3] - 2025-08-07 
+- ✨ 支持mermaid流程图，现在用户可以在markdown注释中自由的使用mermaid语法了。
+- 🔨 修复一些已知问题
+- 🎉 额外的说明：在本次发布中，其实已经实现了很多关于多人协同comment注释内容，但是还需要点时间打磨功能。这里只是做下下一个大版本的功能预告。
 
 ## [1.1.2] - 2025-07-24 
 - ✨ 支持在编辑Markdown的过程中使用ctrl+s保存文本

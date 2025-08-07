@@ -12,7 +12,6 @@
 .gitignore
 .yarnrc
 vsc-extension-quickstart.md
-**/node_modules/**
 **/.eslintrc.json
 **/.eslintrc.js
 **/.eslintrc.yaml
