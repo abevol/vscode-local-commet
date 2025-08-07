@@ -393,24 +393,7 @@ button {
     line-height: 1.5;
 }
 
-/* Mermaid图表样式 */
-.mermaid-chart {
-    margin: 16px 0;
-    padding: 12px;
-    background-color: var(--vscode-textCodeBlock-background);
-    border: 1px solid var(--vscode-textBlockQuote-border);
-    border-radius: 4px;
-    text-align: center;
-    overflow-x: auto;
-    max-width: 100%;
-}
 
-.mermaid-chart svg {
-    max-width: 100%;
-    height: auto;
-    display: block;
-    margin: 0 auto;
-}
 
 /* Mermaid图表错误样式 */
 .mermaid-error {
@@ -448,6 +431,7 @@ button {
     opacity: 1 !important;
     min-height: 100px;
     width: 100% !important;
+    position: relative !important;
 }
 
 #previewArea .mermaid-chart svg,
@@ -461,4 +445,132 @@ button {
     background: white !important;
     max-width: 100% !important;
     border-radius: 4px !important;
+    transition: transform 0.1s ease !important;
+    transform-origin: center !important;
+} 
+
+/* Mermaid图表交互样式 - 从内联样式移植 */
+.mermaid-chart {
+    display: block !important;
+    width: 100% !important;
+    overflow: hidden !important;
+    margin: 1em 0 !important;
+    padding: 10px !important;
+    background: var(--vscode-editor-background) !important;
+    border: 1px solid var(--vscode-editorWidget-border) !important;
+    border-radius: 4px !important;
+    box-sizing: border-box !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 1 !important;
+    cursor: grab !important;
+    user-select: none !important;
+}
+
+.mermaid-chart:active {
+    cursor: grabbing !important;
+}
+
+.mermaid-chart svg,
+.mermaid-chart img {
+    display: block !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 200px !important;
+    background: white !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    position: relative !important;
+    z-index: 2 !important;
+    max-width: 100% !important;
+    border-radius: 4px !important;
+    transition: transform 0.1s ease !important;
+    transform-origin: center !important;
+}
+
+/* 图表控制按钮 */
+.mermaid-controls {
+    position: absolute !important;
+    top: 8px !important;
+    right: 8px !important;
+    display: flex !important;
+    gap: 4px !important;
+    z-index: 10 !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+}
+
+.mermaid-chart:hover .mermaid-controls {
+    opacity: 1 !important;
+}
+
+/* 图表控制按钮 */
+.mermaid-control-btn {
+    width: 28px !important;
+    height: 28px !important;
+    border: none !important;
+    border-radius: 6px !important;
+    background: rgba(0, 0, 0, 0.5) !important;
+    color: white !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 14px !important;
+    font-weight: bold !important;
+    transition: all 0.2s ease !important;
+    backdrop-filter: blur(4px) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.mermaid-control-btn:hover {
+    background: rgba(0, 0, 0, 0.7) !important;
+    transform: scale(1.05) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.mermaid-control-btn:active {
+    background: rgba(0, 0, 0, 0.8) !important;
+    transform: scale(0.95) !important;
+}
+
+/* 缩放指示器 */
+.mermaid-zoom-info {
+    position: absolute !important;
+    bottom: 8px !important;
+    left: 8px !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    color: white !important;
+    padding: 6px 10px !important;
+    border-radius: 6px !important;
+    font-size: 12px !important;
+    font-weight: 500 !important;
+    opacity: 0 !important;
+    transition: opacity 0.2s ease !important;
+    pointer-events: none !important;
+    backdrop-filter: blur(4px) !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.mermaid-chart:hover .mermaid-zoom-info {
+    opacity: 1 !important;
+}
+
+/* 图表容器状态 */
+.mermaid-chart.zoomed {
+    overflow: auto !important;
+    cursor: grab !important;
+}
+
+.mermaid-chart.zoomed:active {
+    cursor: grabbing !important;
+}
+
+.mermaid-error {
+    color: var(--vscode-errorForeground);
+    background: var(--vscode-inputValidation-errorBackground);
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
 } 

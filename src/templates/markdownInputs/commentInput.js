@@ -179,8 +179,16 @@
                     console.log(`开始在内存中渲染图表: ${chartId}`);
                     const { svg } = await mermaid.render(chartId, chartDefinition);
                     console.log(`成功渲染图表: ${chartId}`);
-                    // 将SVG包裹在一个div中，方便设置样式
-                    return `<div class="mermaid-chart">${svg}</div>`;
+                    // 将SVG包裹在一个div中，添加控制按钮和交互功能
+                    return `<div class="mermaid-chart" data-chart-id="${chartId}">
+                        <div class="mermaid-controls">
+                            <button class="mermaid-control-btn" title="放大" onclick="zoomChart('${chartId}', 1.2)">+</button>
+                            <button class="mermaid-control-btn" title="缩小" onclick="zoomChart('${chartId}', 0.8)">−</button>
+                            <button class="mermaid-control-btn" title="重置" onclick="resetChart('${chartId}')">↺</button>
+                        </div>
+                        <div class="mermaid-zoom-info" id="zoom-info-${chartId}">100%</div>
+                        ${svg}
+                    </div>`;
                 } catch (error) {
                     console.error(`渲染Mermaid图表失败: ${chartId}`, error);
                     return `<div class="mermaid-error">图表渲染失败: ${error.message}<pre>${chartDefinition}</pre></div>`;
@@ -749,4 +757,159 @@
                 break;
         }
     });
+
+    // Mermaid图表交互功能
+    // 存储图表状态
+    const chartStates = new Map();
+
+    // 初始化图表状态
+    function initChartState(chartId) {
+        if (!chartStates.has(chartId)) {
+            chartStates.set(chartId, {
+                scale: 1,
+                translateX: 0,
+                translateY: 0,
+                isDragging: false,
+                lastX: 0,
+                lastY: 0
+            });
+        }
+        return chartStates.get(chartId);
+    }
+
+    // 更新图表变换
+    function updateChartTransform(chartId) {
+        const state = chartStates.get(chartId);
+        if (!state) return;
+
+        const chartContainer = document.querySelector(`[data-chart-id="${chartId}"]`);
+        if (!chartContainer) return;
+
+        const svg = chartContainer.querySelector('svg');
+        if (!svg) return;
+
+        const transform = `translate(${state.translateX}px, ${state.translateY}px) scale(${state.scale})`;
+        svg.style.transform = transform;
+
+        // 更新缩放信息
+        const zoomInfo = chartContainer.querySelector('.mermaid-zoom-info');
+        if (zoomInfo) {
+            zoomInfo.textContent = `${Math.round(state.scale * 100)}%`;
+        }
+
+        // 更新容器状态
+        if (state.scale > 1 || state.translateX !== 0 || state.translateY !== 0) {
+            chartContainer.classList.add('zoomed');
+        } else {
+            chartContainer.classList.remove('zoomed');
+        }
+    }
+
+    // 缩放图表
+    window.zoomChart = function(chartId, factor) {
+        const state = initChartState(chartId);
+        const newScale = Math.max(0.1, Math.min(5, state.scale * factor));
+        state.scale = newScale;
+        updateChartTransform(chartId);
+    };
+
+    // 重置图表
+    window.resetChart = function(chartId) {
+        const state = chartStates.get(chartId);
+        if (state) {
+            state.scale = 1;
+            state.translateX = 0;
+            state.translateY = 0;
+            updateChartTransform(chartId);
+        }
+    };
+
+    // 鼠标滚轮缩放
+    function setupChartWheelZoom() {
+        document.addEventListener('wheel', function(e) {
+            const chartContainer = e.target.closest('.mermaid-chart');
+            if (chartContainer && e.ctrlKey) {
+                e.preventDefault();
+                const chartId = chartContainer.getAttribute('data-chart-id');
+                if (chartId) {
+                    const factor = e.deltaY > 0 ? 0.9 : 1.1;
+                    zoomChart(chartId, factor);
+                }
+            }
+        });
+    }
+
+    // 鼠标拖拽功能
+    function setupChartDrag() {
+        let currentChart = null;
+        let currentState = null;
+
+        document.addEventListener('mousedown', function(e) {
+            const chartContainer = e.target.closest('.mermaid-chart');
+            if (chartContainer && e.button === 0) { // 左键点击
+                const chartId = chartContainer.getAttribute('data-chart-id');
+                if (chartId) {
+                    currentChart = chartContainer;
+                    currentState = initChartState(chartId);
+                    currentState.isDragging = true;
+                    currentState.lastX = e.clientX;
+                    currentState.lastY = e.clientY;
+                    chartContainer.style.cursor = 'grabbing';
+                }
+            }
+        });
+
+        document.addEventListener('mousemove', function(e) {
+            if (currentChart && currentState && currentState.isDragging) {
+                const deltaX = e.clientX - currentState.lastX;
+                const deltaY = e.clientY - currentState.lastY;
+                
+                currentState.translateX += deltaX;
+                currentState.translateY += deltaY;
+                
+                currentState.lastX = e.clientX;
+                currentState.lastY = e.clientY;
+                
+                updateChartTransform(currentChart.getAttribute('data-chart-id'));
+            }
+        });
+
+        document.addEventListener('mouseup', function() {
+            if (currentChart && currentState) {
+                currentState.isDragging = false;
+                currentChart.style.cursor = 'grab';
+                currentChart = null;
+                currentState = null;
+            }
+        });
+
+        // 鼠标离开窗口时停止拖拽
+        document.addEventListener('mouseleave', function() {
+            if (currentChart && currentState) {
+                currentState.isDragging = false;
+                currentChart.style.cursor = 'grab';
+                currentChart = null;
+                currentState = null;
+            }
+        });
+    }
+
+    // 初始化图表交互功能
+    function initChartInteractions() {
+        setupChartWheelZoom();
+        setupChartDrag();
+    }
+
+    // 在预览更新后初始化图表交互
+    const originalUpdatePreview = updatePreview;
+    updatePreview = async function(content) {
+        await originalUpdatePreview(content);
+        // 延迟初始化，确保DOM已更新
+        setTimeout(() => {
+            initChartInteractions();
+        }, 100);
+    };
+
+    // 立即初始化
+    initChartInteractions();
 })();

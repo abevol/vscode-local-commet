@@ -44,46 +44,5 @@
         window.tagSuggestions = '${tagSuggestions}';
     </script>
     <script src="${jsUri}"></script>
-    <style>
-        /* Mermaid图表基础样式 - 使用!important确保优先级 */
-        .mermaid-chart {
-            display: block !important;
-            width: 100% !important;
-            overflow: visible !important;
-            margin: 1em 0 !important;
-            padding: 10px !important;
-            background: var(--vscode-editor-background) !important;
-            border: 1px solid var(--vscode-editorWidget-border) !important;
-            border-radius: 4px !important;
-            box-sizing: border-box !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 1 !important;
-        }
-        
-        .mermaid-chart svg,
-        .mermaid-chart img {
-            display: block !important;
-            width: 100% !important;
-            height: auto !important;
-            min-height: 200px !important;
-            background: white !important;
-            visibility: visible !important;
-            opacity: 1 !important;
-            position: relative !important;
-            z-index: 2 !important;
-            max-width: 100% !important;
-            border-radius: 4px !important;
-        }
-        
-        .mermaid-error {
-            color: var(--vscode-errorForeground);
-            background: var(--vscode-inputValidation-errorBackground);
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-        }
-    </style>
 </body>
 </html> 
