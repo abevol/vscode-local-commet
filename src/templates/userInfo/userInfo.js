@@ -570,8 +570,10 @@ window.addEventListener('message', event => {
             break;
         case 'logoutResult':
             if (message.success) {
-                // 退出登录成功，关闭面板
-                window.close();
+                // 退出登录成功，请求扩展侧关闭面板
+                vscode.postMessage({
+                    command: 'close'
+                });
             } else {
                 // 退出登录失败，重置按钮状态
                 resetLogoutButton();

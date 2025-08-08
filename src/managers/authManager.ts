@@ -181,16 +181,8 @@ export class AuthManager {
      * 用户登出
      */
     public async logout(): Promise<void> {
-        try {
-            // 调用登出API
-            if (this.currentSession) {
-                await apiService.post(ApiRoutes.auth.logout);
-            }
-        } catch (error) {
-            console.error('登出API调用失败:', error);
-        } finally {
-            this.clearSession();
-        }
+        // 仅本地清理会话数据（当前无后端登出接口）
+        this.clearSession();
     }
 
     /**
