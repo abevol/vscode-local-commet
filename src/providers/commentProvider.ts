@@ -5,6 +5,7 @@ import axios from 'axios';
 
 export class CommentProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
+    private sharedDecorationType: vscode.TextEditorDecorationType; // 新增：共享注释装饰类型
     private tagDecorationType: vscode.TextEditorDecorationType;
     private commentManager: CommentManager;
     private isVisible: boolean = true;
@@ -13,6 +14,7 @@ export class CommentProvider implements vscode.Disposable {
 
     // 预加载的图标URIs
     private commentIconUri: string | null = null;
+    private cloudIconUri: string | null = null; // 新增：云朵图标
     private editIconUri: string | null = null;
     private deleteIconUri: string | null = null;
     private markdownIconUri: string | null = null;
@@ -22,6 +24,17 @@ export class CommentProvider implements vscode.Disposable {
 
         // 初始创建装饰类型（先不设置图标，这里的图标指行号旁边的小图标，可以用svg）
         this.decorationType = vscode.window.createTextEditorDecorationType({
+            // 行内显示注释内容（不包含图标）
+            after: {
+                color: '#888888',
+                fontStyle: 'italic',
+                margin: '0 0 0 1em'
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+        });
+
+        // 创建共享注释装饰类型
+        this.sharedDecorationType = vscode.window.createTextEditorDecorationType({
             // 行内显示注释内容（不包含图标）
             after: {
                 color: '#888888',
@@ -53,14 +66,16 @@ export class CommentProvider implements vscode.Disposable {
     private async loadAllIcons(): Promise<void> {
         try {
             const context = this.commentManager.getContext();
-            const [commentIcon, editIcon, deleteIcon, markdownIcon] = await Promise.all([
+            const [commentIcon, cloudIcon, editIcon, deleteIcon, markdownIcon] = await Promise.all([
                 createDataUri(context, 'src/resources/pin.svg'), // 注释图标
+                createDataUri(context, 'src/resources/cloud.svg'), // 云朵图标
                 createDataUri(context, 'src/resources/edit.svg'), // 编辑图标
                 createDataUri(context, 'src/resources/delete.svg'), // 删除图标
                 createDataUri(context, 'src/resources/markdown.svg') // Markdown图标
             ]);
 
             this.commentIconUri = commentIcon;
+            this.cloudIconUri = cloudIcon;
             this.editIconUri = editIcon;
             this.deleteIconUri = deleteIcon;
             this.markdownIconUri = markdownIcon;
@@ -73,11 +88,27 @@ export class CommentProvider implements vscode.Disposable {
     private recreateDecorationType(): void {
         // 先释放旧的装饰类型
         this.decorationType.dispose();
+        this.sharedDecorationType.dispose(); // 释放共享注释装饰类型
 
         // 创建新的装饰类型，包含图标
         this.decorationType = vscode.window.createTextEditorDecorationType({
             // 在行号区域显示注释图标
             gutterIconPath: this.commentIconUri ? vscode.Uri.parse(this.commentIconUri) : undefined,
+            gutterIconSize: 'contain', // 使图标适应行号区域大小
+
+            // 行内显示注释内容（不包含图标）
+            after: {
+                color: '#888888',
+                fontStyle: 'italic',
+                margin: '0 0 0 1em'
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
+        });
+
+        // 创建共享注释装饰类型
+        this.sharedDecorationType = vscode.window.createTextEditorDecorationType({
+            // 在行号区域显示云朵图标
+            gutterIconPath: this.cloudIconUri ? vscode.Uri.parse(this.cloudIconUri) : undefined,
             gutterIconSize: 'contain', // 使图标适应行号区域大小
 
             // 行内显示注释内容（不包含图标）
@@ -106,33 +137,52 @@ export class CommentProvider implements vscode.Disposable {
     }
 
     private updateDecorations(): void {
-        if (!this.isVisible) {
-            return;
-        }
-
         const editor = vscode.window.activeTextEditor;
-        if (!editor) {
+        if (!editor || !this.isVisible) {
+            this.clearDecorations();
             return;
         }
 
-        // 拿到所有能匹配到的注释
-        const comments = this.commentManager.getComments(editor.document.uri);
+        const document = editor.document;
+        const uri = document.uri;
+        const comments = this.commentManager.getComments(uri);
+
+        if (comments.length === 0) {
+            this.clearDecorations();
+            return;
+        }
 
         const normalDecorations: vscode.DecorationOptions[] = [];
+        const sharedDecorations: vscode.DecorationOptions[] = [];
 
         // 按行号分组注释
-        const commentsByLine = this.groupCommentsByLine(comments, editor.document.lineCount);
+        const commentsByLine = this.groupCommentsByLine(comments, document.lineCount);
 
-        // 处理每一行的注释
-        for (const [lineNumber, lineComments] of commentsByLine) {
-            const line = editor.document.lineAt(lineNumber);
+        // 为每一行创建装饰器
+        for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
+            const line = document.lineAt(lineNumber);
+            const lineComments = commentsByLine.get(lineNumber) || [];
+
+            if (lineComments.length === 0) {
+                continue;
+            }
 
             // 为每一行只创建一个装饰器，包含该行的所有注释
-            const decoration = this.createSingleDecoration(lineComments, line, editor);
-            normalDecorations.push(decoration);
+            const normalDecoration = this.createSingleDecoration(lineComments, line, editor);
+            if (normalDecoration.renderOptions?.after?.contentText) {
+                normalDecorations.push(normalDecoration);
+            }
+
+            // 创建共享注释装饰器 - 只要有共享注释就显示图标
+            const sharedDecoration = this.createSharedDecoration(lineComments, line, editor);
+            const hasSharedComments = lineComments.some(comment => 'userId' in comment);
+            if (hasSharedComments) {
+                sharedDecorations.push(sharedDecoration);
+            }
         }
 
         editor.setDecorations(this.decorationType, normalDecorations);
+        editor.setDecorations(this.sharedDecorationType, sharedDecorations);
     }
 
     // 创建注释的装饰器
@@ -166,6 +216,28 @@ export class CommentProvider implements vscode.Disposable {
                     margin: margin
                 }
             }
+        };
+
+        return decoration;
+    }
+
+    // 创建共享注释的装饰器
+    private createSharedDecoration(comments: (LocalComment | SharedComment)[], line: vscode.TextLine, editor: vscode.TextEditor): vscode.DecorationOptions {
+        // 只显示共享注释
+        const sharedComments = comments.filter(comment => 'userId' in comment);
+
+        // 如果没有共享注释，返回空的装饰选项
+        if (sharedComments.length === 0) {
+            return {
+                range: new vscode.Range(line.lineNumber, 0, line.lineNumber, 0),
+                renderOptions: {}
+            };
+        }
+
+        // 创建装饰选项 - 只显示图标，不显示内容
+        const decoration: vscode.DecorationOptions = {
+            range: new vscode.Range(line.lineNumber, 0, line.lineNumber, 0),
+            renderOptions: {}
         };
 
         return decoration;
@@ -283,18 +355,14 @@ export class CommentProvider implements vscode.Disposable {
         const editor = vscode.window.activeTextEditor;
         if (editor) {
             editor.setDecorations(this.decorationType, []);
+            editor.setDecorations(this.sharedDecorationType, []);
             editor.setDecorations(this.tagDecorationType, []);
         }
     }
 
     public dispose(): void {
-        // 清理防抖定时器
-        if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
-            this.updateTimer = null;
-        }
-
         this.decorationType.dispose();
+        this.sharedDecorationType.dispose(); // 释放共享注释装饰类型
         this.tagDecorationType.dispose();
         this.disposables.forEach(d => d.dispose());
     }
@@ -338,7 +406,10 @@ export class CommentProvider implements vscode.Disposable {
             const localComments = lineComments.filter(comment => !('userId' in comment));
             const sharedComments = lineComments.filter(comment => 'userId' in comment);
 
-
+            // 只显示本地注释的hover，不显示共享注释的hover
+            if (localComments.length === 0) {
+                return undefined; // 如果没有本地注释，不显示hover
+            }
 
             // 显示本地注释
             for (let i = 0; i < localComments.length; i++) {

@@ -475,8 +475,19 @@ export function registerCommentCommands(
             const uri = vscode.Uri.file(filePath);
             
             // 首先验证注释是否还能找到对应的代码
+            // 同时查找本地注释和共享注释
             const fileComments = commentManager.getAllComments()[filePath] || [];
-            const targetComment = fileComments.find(c => c.originalLine === line || c.line === line);
+            const sharedComments = commentManager.getAllSharedComments()[filePath] || [];
+            
+            // 查找目标注释（优先查找本地注释，然后查找共享注释）
+            let targetComment = fileComments.find(c => c.originalLine === line || c.line === line);
+            let isSharedComment = false;
+            
+            if (!targetComment) {
+                // 如果本地注释中没找到，查找共享注释
+                targetComment = sharedComments.find(c => c.line === line);
+                isSharedComment = true;
+            }
             
             if (!targetComment) {
                 vscode.window.showWarningMessage(`找不到第 ${line + 1} 行的注释`);
@@ -487,7 +498,34 @@ export function registerCommentCommands(
             const document = await vscode.workspace.openTextDocument(uri);
             const editor = await vscode.window.showTextDocument(document);
             
-            // 使用智能匹配验证注释是否还能找到对应的代码
+            // 对于共享注释，直接跳转到指定行
+            if (isSharedComment) {
+                const position = new vscode.Position(line, 0);
+                editor.selection = new vscode.Selection(position, position);
+                editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+                
+                // 显示共享注释信息
+                const commentType = 'username' in targetComment && targetComment.username ? `[${targetComment.username}]` : 
+                                  'userId' in targetComment && targetComment.userId ? `[用户${targetComment.userId}]` : '[未知用户]';
+                vscode.window.showInformationMessage(
+                    `跳转到共享注释 ${commentType}: ${targetComment.content.substring(0, 50)}${targetComment.content.length > 50 ? '...' : ''}`,
+                    '查看注释详情'
+                ).then(selection => {
+                    if (selection === '查看注释详情') {
+                        // 显示注释详细信息
+                        const message = `共享注释详情:\n\n` +
+                                      `用户: ${commentType}\n` +
+                                      `内容: ${targetComment.content}\n` +
+                                      `位置: 第 ${targetComment.line + 1} 行\n` +
+                                      `代码: ${targetComment.lineContent || '未知'}\n` +
+                                      `创建时间: ${new Date(targetComment.timestamp).toLocaleString()}`;
+                        vscode.window.showInformationMessage(message, { modal: true });
+                    }
+                });
+                return;
+            }
+            
+            // 对于本地注释，使用智能匹配验证注释是否还能找到对应的代码
             const comments = commentManager.getComments(uri);
             const matchedComment = comments.find(c => c.id === targetComment.id);
             
