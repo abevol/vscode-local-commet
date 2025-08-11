@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { CommentProvider } from '../../providers/commentProvider';
 import { CommentTreeProvider } from '../../providers/commentTreeProvider';
 import { CommentManager } from '../../managers/commentManager';
@@ -498,30 +499,66 @@ export function registerCommentCommands(
             const document = await vscode.workspace.openTextDocument(uri);
             const editor = await vscode.window.showTextDocument(document);
             
-            // 对于共享注释，直接跳转到指定行
+            // 对于共享注释，跳转到指定行并显示webview
             if (isSharedComment) {
                 const position = new vscode.Position(line, 0);
                 editor.selection = new vscode.Selection(position, position);
                 editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
                 
-                // 显示共享注释信息
-                const commentType = 'username' in targetComment && targetComment.username ? `[${targetComment.username}]` : 
-                                  'userId' in targetComment && targetComment.userId ? `[用户${targetComment.userId}]` : '[未知用户]';
-                vscode.window.showInformationMessage(
-                    `跳转到共享注释 ${commentType}: ${targetComment.content.substring(0, 50)}${targetComment.content.length > 50 ? '...' : ''}`,
-                    '查看注释详情'
-                ).then(selection => {
-                    if (selection === '查看注释详情') {
-                        // 显示注释详细信息
-                        const message = `共享注释详情:\n\n` +
-                                      `用户: ${commentType}\n` +
-                                      `内容: ${targetComment.content}\n` +
-                                      `位置: 第 ${targetComment.line + 1} 行\n` +
-                                      `代码: ${targetComment.lineContent || '未知'}\n` +
-                                      `创建时间: ${new Date(targetComment.timestamp).toLocaleString()}`;
-                        vscode.window.showInformationMessage(message, { modal: true });
+                // 显示共享注释的webview
+                try {
+                    // 动态导入shareCommentWebview模块
+                    const { showShareCommentWebview } = await import('../shareCommentWebview');
+                    
+                    // 获取代码上下文信息
+                    const contextLines = [];
+                    const contextStartLine = Math.max(0, line - 2);
+                    const contextEndLine = Math.min(document.lineCount - 1, line + 2);
+                    
+                    for (let i = contextStartLine; i <= contextEndLine; i++) {
+                        contextLines.push(document.lineAt(i).text);
                     }
-                });
+                    
+                    // 构建上下文信息
+                    const contextInfo = {
+                        fileName: path.basename(filePath),
+                        lineNumber: line,
+                        lineContent: targetComment.lineContent || '',
+                        contextLines: contextLines,
+                        contextStartLine: contextStartLine,
+                        filePath: filePath
+                    };
+                    
+                    // 显示webview
+                    await showShareCommentWebview(
+                        context as vscode.ExtensionContext,
+                        targetComment.content,
+                        `共享注释预览 - ${path.basename(filePath)}:${line + 1}`,
+                        contextInfo
+                    );
+                    
+                } catch (error) {
+                    console.error('显示共享注释webview失败:', error);
+                    
+                    // 如果webview显示失败，回退到原来的信息提示
+                    const commentType = 'username' in targetComment && targetComment.username ? `[${targetComment.username}]` : 
+                                      'userId' in targetComment && targetComment.userId ? `[用户${targetComment.userId}]` : '[未知用户]';
+                    vscode.window.showInformationMessage(
+                        `跳转到共享注释 ${commentType}: ${targetComment.content.substring(0, 50)}${targetComment.content.length > 50 ? '...' : ''}`,
+                        '查看注释详情'
+                    ).then(selection => {
+                        if (selection === '查看注释详情') {
+                            // 显示注释详细信息
+                            const message = `共享注释详情:\n\n` +
+                                          `用户: ${commentType}\n` +
+                                          `内容: ${targetComment.content}\n` +
+                                          `位置: 第 ${targetComment.line + 1} 行\n` +
+                                          `代码: ${targetComment.lineContent || '未知'}\n` +
+                                          `创建时间: ${new Date(targetComment.timestamp).toLocaleString()}`;
+                            vscode.window.showInformationMessage(message, { modal: true });
+                        }
+                    });
+                }
                 return;
             }
             
@@ -1129,6 +1166,64 @@ export function registerCommentCommands(
         }
     });
 
+    // 预览注释内容命令
+    const previewSharedCommentCommand = vscode.commands.registerCommand('localComment.previewSharedComment', async (args) => {
+        try {
+            let parsedArgs;
+            
+            // 检查参数是否已经是对象
+            if (typeof args === 'object') {
+                parsedArgs = args;
+            } else if (typeof args === 'string') {
+                try {
+                    parsedArgs = JSON.parse(args);
+                } catch (parseError) {
+                    console.error('参数解析失败:', parseError);
+                    vscode.window.showErrorMessage('参数格式错误');
+                    return;
+                }
+            } else {
+                vscode.window.showErrorMessage('参数类型不正确');
+                return;
+            }
+
+            const { uri, commentId, line, content } = parsedArgs;
+            
+            if (!uri || !content) {
+                vscode.window.showErrorMessage('参数不完整');
+                return;
+            }
+
+            const documentUri = vscode.Uri.parse(uri);
+            const fileName = documentUri.fsPath.split(/[/\\]/).pop() || '未知文件';
+            const lineNumber = line !== undefined ? line : 0;
+            
+            // 构建上下文信息
+            const contextInfo = {
+                fileName: fileName,
+                lineNumber: lineNumber,
+                lineContent: content,
+                filePath: documentUri.fsPath
+            };
+
+            // 导入并显示shareCommentWebview
+            const { showShareCommentWebview } = await import('../shareCommentWebview');
+            if (!context) {
+                vscode.window.showErrorMessage('无法获取扩展上下文');
+                return;
+            }
+            await showShareCommentWebview(
+                context,
+                content,
+                `注释预览 - ${fileName}:${lineNumber + 1}`,
+                contextInfo
+            );
+        } catch (error) {
+            console.error('预览注释时发生错误:', error);
+            vscode.window.showErrorMessage(`预览注释时发生错误: ${error}`);
+        }
+    });
+
     return [
         goToCommentCommand,
         goToTagDeclarationCommand,
@@ -1151,5 +1246,6 @@ export function registerCommentCommands(
         convertSelectionToCommentCommand,
         removeCommentCommand,
         removeCommentFromHoverCommand,
+        previewSharedCommentCommand,
     ];
 }

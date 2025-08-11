@@ -33,10 +33,15 @@ export class CommentMatcher {
         this.matchedLines.clear();
         const results = new Map<string, number>();
         
+        // 分离本地注释和共享注释，本地注释优先匹配
+        const localComments = comments.filter(comment => !('userId' in comment));
+        const sharedComments = comments.filter(comment => 'userId' in comment);
+        
         // 按照匹配优先级排序：
-        // 1. 原始行号仍然匹配的注释（最高优先级）
-        // 2. 按照注释创建时间排序（较早的注释优先级更高）
-        const sortedComments = [...comments].sort((a, b) => {
+        // 1. 本地注释优先（最高优先级）
+        // 2. 原始行号仍然匹配的注释
+        // 3. 按照注释创建时间排序（较早的注释优先级更高）
+        const sortedLocalComments = [...localComments].sort((a, b) => {
             // 首先检查原始位置是否仍然匹配
             const aOriginalMatch = this.isExactMatch(document, a, a.line);
             const bOriginalMatch = this.isExactMatch(document, b, b.line);
@@ -48,8 +53,20 @@ export class CommentMatcher {
             return a.timestamp - b.timestamp;
         });
         
-        // 逐个匹配注释
-        for (const comment of sortedComments) {
+        const sortedSharedComments = [...sharedComments].sort((a, b) => {
+            // 首先检查原始位置是否仍然匹配
+            const aOriginalMatch = this.isExactMatch(document, a, a.line);
+            const bOriginalMatch = this.isExactMatch(document, b, b.line);
+            
+            if (aOriginalMatch && !bOriginalMatch) return -1;
+            if (!aOriginalMatch && bOriginalMatch) return 1;
+            
+            // 如果都匹配或都不匹配，按时间戳排序（早的优先）
+            return a.timestamp - b.timestamp;
+        });
+        
+        // 先匹配本地注释
+        for (const comment of sortedLocalComments) {
             const matchedLine = this.findMatchingLineInternal(document, comment);
             results.set(comment.id, matchedLine);
             
@@ -57,6 +74,15 @@ export class CommentMatcher {
             if (matchedLine >= 0) {
                 this.matchedLines.add(matchedLine);
             }
+        }
+        
+        // 再匹配共享注释，但允许与本地注释在同一行
+        for (const comment of sortedSharedComments) {
+            const matchedLine = this.findMatchingLineInternal(document, comment);
+            results.set(comment.id, matchedLine);
+            
+            // 共享注释不占用行，允许与本地注释共存
+            // 注意：这里不添加到matchedLines，允许同一行有多个注释
         }
         
         return results;
@@ -77,10 +103,15 @@ export class CommentMatcher {
         this.matchedLines.clear();
         const results = new Map<string, number>();
         
+        // 分离本地注释和共享注释，本地注释优先匹配
+        const localComments = comments.filter(comment => !('userId' in comment));
+        const sharedComments = comments.filter(comment => 'userId' in comment);
+        
         // 按照匹配优先级排序：
-        // 1. 原始行号仍然匹配的注释（最高优先级）
-        // 2. 按照注释创建时间排序（较早的注释优先级更高）
-        const sortedComments = [...comments].sort((a, b) => {
+        // 1. 本地注释优先（最高优先级）
+        // 2. 原始行号仍然匹配的注释
+        // 3. 按照注释创建时间排序（较早的注释优先级更高）
+        const sortedLocalComments = [...localComments].sort((a, b) => {
             // 首先检查原始位置是否仍然匹配
             const aOriginalMatch = this.isExactMatch(document, a, a.line);
             const bOriginalMatch = this.isExactMatch(document, b, b.line);
@@ -92,8 +123,20 @@ export class CommentMatcher {
             return a.timestamp - b.timestamp;
         });
         
-        // 逐个匹配注释，使用扩展的搜索范围
-        for (const comment of sortedComments) {
+        const sortedSharedComments = [...sharedComments].sort((a, b) => {
+            // 首先检查原始位置是否仍然匹配
+            const aOriginalMatch = this.isExactMatch(document, a, a.line);
+            const bOriginalMatch = this.isExactMatch(document, b, b.line);
+            
+            if (aOriginalMatch && !bOriginalMatch) return -1;
+            if (!aOriginalMatch && bOriginalMatch) return 1;
+            
+            // 如果都匹配或都不匹配，按时间戳排序（早的优先）
+            return a.timestamp - b.timestamp;
+        });
+        
+        // 先匹配本地注释，使用扩展的搜索范围
+        for (const comment of sortedLocalComments) {
             const matchedLine = this.findMatchingLineForLargeChanges(document, comment);
             results.set(comment.id, matchedLine);
             
@@ -103,31 +146,41 @@ export class CommentMatcher {
             }
         }
         
+        // 再匹配共享注释，但允许与本地注释在同一行
+        for (const comment of sortedSharedComments) {
+            const matchedLine = this.findMatchingLineForLargeChanges(document, comment);
+            results.set(comment.id, matchedLine);
+            
+            // 共享注释不占用行，允许与本地注释共存
+        }
+        
         return results;
     }
     
     /**
-     * 批量匹配所有注释，支持全文搜索，用于文件首次加载和Git更新等场景
+     * 批量匹配所有注释，支持全文搜索，用于Git更新和文件加载场景
      * 
-     * 这个方法会在局部搜索失败后，进行全文搜索以找到可能的匹配。
-     * 适用于以下场景：
-     * - 文件首次加载时恢复注释位置
-     * - Git分支切换或合并后的注释匹配
+     * 适用场景：
+     * - Git分支切换后的注释重新匹配
+     * - 文件首次加载时的注释匹配
      * - 大规模代码重构后的注释恢复
-     * - 项目导入或迁移后的注释恢复
      * 
-     * 特点：先进行局部搜索，失败后进行全文搜索，确保最大的匹配成功率
-     * 性能：比常规匹配慢，但在非实时场景下可以接受
+     * 特点：使用全文搜索，确保匹配成功率，性能相对较低但匹配精度高
      */
     public batchMatchCommentsWithFullSearch(document: vscode.TextDocument, comments: (LocalComment | SharedComment)[]): Map<string, number> {
         // 重置匹配状态
         this.matchedLines.clear();
         const results = new Map<string, number>();
         
+        // 分离本地注释和共享注释，本地注释优先匹配
+        const localComments = comments.filter(comment => !('userId' in comment));
+        const sharedComments = comments.filter(comment => 'userId' in comment);
+        
         // 按照匹配优先级排序：
-        // 1. 原始行号仍然匹配的注释（最高优先级）
-        // 2. 按照注释创建时间排序（较早的注释优先级更高）
-        const sortedComments = [...comments].sort((a, b) => {
+        // 1. 本地注释优先（最高优先级）
+        // 2. 原始行号仍然匹配的注释
+        // 3. 按照注释创建时间排序（较早的注释优先级更高）
+        const sortedLocalComments = [...localComments].sort((a, b) => {
             // 首先检查原始位置是否仍然匹配
             const aOriginalMatch = this.isExactMatch(document, a, a.line);
             const bOriginalMatch = this.isExactMatch(document, b, b.line);
@@ -139,8 +192,20 @@ export class CommentMatcher {
             return a.timestamp - b.timestamp;
         });
         
-        // 逐个匹配注释，支持全文搜索
-        for (const comment of sortedComments) {
+        const sortedSharedComments = [...sharedComments].sort((a, b) => {
+            // 首先检查原始位置是否仍然匹配
+            const aOriginalMatch = this.isExactMatch(document, a, a.line);
+            const bOriginalMatch = this.isExactMatch(document, b, b.line);
+            
+            if (aOriginalMatch && !bOriginalMatch) return -1;
+            if (!aOriginalMatch && bOriginalMatch) return 1;
+            
+            // 如果都匹配或都不匹配，按时间戳排序（早的优先）
+            return a.timestamp - b.timestamp;
+        });
+        
+        // 先匹配本地注释，使用全文搜索
+        for (const comment of sortedLocalComments) {
             const matchedLine = this.findMatchingLineWithFullSearch(document, comment);
             results.set(comment.id, matchedLine);
             
@@ -148,6 +213,14 @@ export class CommentMatcher {
             if (matchedLine >= 0) {
                 this.matchedLines.add(matchedLine);
             }
+        }
+        
+        // 再匹配共享注释，但允许与本地注释在同一行
+        for (const comment of sortedSharedComments) {
+            const matchedLine = this.findMatchingLineWithFullSearch(document, comment);
+            results.set(comment.id, matchedLine);
+            
+            // 共享注释不占用行，允许与本地注释共存
         }
         
         return results;

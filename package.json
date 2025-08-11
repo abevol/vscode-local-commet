@@ -248,6 +248,17 @@
         "title": "%refreshSharedComments%",
         "icon": "$(refresh)",
         "category": "Local Comment"
+      },
+      {
+        "command": "localComment.showShareComment",
+        "title": "%showShareComment%",
+        "icon": "$(arrow-right)",
+        "category": "Local Comment"
+      },
+      {
+        "command": "localComment.previewSharedComment",
+        "title": "%previewSharedComment%",
+        "category": "Local Comment"
       }
     ],
     "views": {
@@ -396,6 +407,11 @@
           "command": "localComment.clearFileBookmarks",
           "when": "view == localComments && viewItem == file",
           "group": "context"
+        },
+        {
+          "command": "localComment.showShareComment",
+          "when": "view == sharedComments && viewItem == shared-comment",
+          "group": "inline"
         }
       ]
     },

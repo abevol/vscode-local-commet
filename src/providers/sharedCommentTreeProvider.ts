@@ -155,7 +155,9 @@ export class SharedCommentTreeProvider implements vscode.TreeDataProvider<Shared
             
             commentNode.tooltip = markdownTooltip;
             
-            // 添加命令，点击时跳转到对应位置
+            // 小箭头图标通过 package.json 中的 menus 配置自动显示
+            
+            // 添加命令，点击时跳转到对应位置（通过右键菜单或双击）
             commentNode.command = {
                 command: 'localComment.goToComment',
                 title: '跳转到共享注释',

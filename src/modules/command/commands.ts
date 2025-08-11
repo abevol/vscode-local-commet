@@ -888,6 +888,43 @@ export function registerCommands(
         }
     });
 
+    // 显示共享注释Webview命令
+    const showShareCommentCommand = vscode.commands.registerCommand('localComment.showShareComment', async (treeItem: any) => {
+        try {
+            // 从树项中获取共享注释数据
+            if (!treeItem || !treeItem.sharedComment) {
+                vscode.window.showErrorMessage('无法获取共享注释数据');
+                return;
+            }
+            
+            const comment = treeItem.sharedComment;
+            const filePath = treeItem.filePath;
+            
+            // 导入showShareCommentWebview函数
+            const { showShareCommentWebview } = require('../shareCommentWebview');
+            
+            // 构建上下文信息
+            const contextInfo = {
+                fileName: require('path').basename(filePath),
+                lineNumber: comment.line,
+                lineContent: comment.lineContent,
+                filePath: filePath
+            };
+            
+            // 显示Webview
+            await showShareCommentWebview(
+                commentManager.getContext(),
+                comment.content,
+                `共享注释预览 - ${contextInfo.fileName}:${comment.line + 1}`,
+                contextInfo
+            );
+            
+        } catch (error) {
+            console.error('显示共享注释Webview失败:', error);
+            vscode.window.showErrorMessage(`显示注释内容失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        }
+    });
+
     // 注册comment.ts中的命令
     const commentCommands = registerCommentCommands(commentManager, tagManager, commentProvider, commentTreeProvider, context);
 
@@ -905,6 +942,7 @@ export function registerCommands(
         // 认证相关命令
         logoutCommand,
         refreshSharedCommentsCommand,
+        showShareCommentCommand,
         ...commentCommands,
         ...bookmarkCommands,
     ];

@@ -180,7 +180,7 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
             const commentNode = new CommentTreeItem(
                 label,
                 vscode.TreeItemCollapsibleState.None,
-                isMatchable ? 'comment' : 'hidden-comment'
+                'comment' // 始终使用comment类型，不再区分hidden-comment
             );
             
             commentNode.filePath = filePath;
@@ -191,12 +191,10 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
             markdownTooltip.appendMarkdown(comment.content);
             
             if (!isMatchable) {
-                // 添加隐藏状态的提示
-                markdownTooltip.appendMarkdown('\n\n*注释当前无法匹配到代码，已被隐藏*');
-                // 使用暗色主题图标
-                commentNode.iconPath = new vscode.ThemeIcon('comment-unresolved');
-                // 应用特殊CSS类
-                commentNode.resourceUri = vscode.Uri.parse(`hidden-comment:${comment.id}`);
+                // 添加匹配状态的提示，但不改变显示样式
+                markdownTooltip.appendMarkdown('\n\n*注释当前无法匹配到代码，但仍在注释树中显示*');
+                // 使用正常图标，不显示为暗色
+                commentNode.iconPath = new vscode.ThemeIcon('comment');
             } else {
                 commentNode.iconPath = new vscode.ThemeIcon('comment');
             }
