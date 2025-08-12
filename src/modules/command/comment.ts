@@ -958,46 +958,123 @@ export function registerCommentCommands(
         
         try {
             if (existingComment) {
-                // 如果有现有注释，进入编辑模式
-                // 检查注释是否能匹配到当前代码
-                const matchedComments = commentManager.getComments(editor.document.uri);
-                const isMatched = matchedComments.some(c => c.id === existingComment.id);
-                
-                let contextInfo: any = {
-                    fileName,
-                    lineNumber: line,
-                    originalLineContent: existingComment.lineContent, // 注释保存的代码快照
-                    filePath: editor.document.uri.fsPath // 始终设置完整的文件路径
-                };
-
-                if (isMatched) {
-                    // 注释能匹配到代码，显示完整的上下文信息
-                    const codeContext = await getCodeContext(editor.document.uri, line);
+                // 检查注释类型：如果是共享注释，我们需要查找该行是否有本地注释
+                if ('userId' in existingComment) {
+                    // 这是共享注释，查找该行是否有本地注释
+                    const localComments = commentManager.getAllComments()[editor.document.uri.fsPath] || [];
+                    const localComment = localComments.find(c => c.line === line && !('userId' in c));
                     
-                    contextInfo.lineContent = lineContent; // 当前行的实际内容
-                    contextInfo.contextLines = codeContext.contextLines;
-                    contextInfo.contextStartLine = codeContext.contextStartLine;
-                }
-                
-                const newContent = await showMarkdownWebviewInput(
-                    context!,
-                    '编辑多行本地注释',
-                    '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
-                    existingComment.content,
-                    contextInfo,
-                    '',
-                    createSaveAndContinueCallback('edit', editor.document.uri, existingComment.id, existingComment.line, existingComment.content),
-                    isUserLoggedIn,
-                    existingComment.isShared || false
-                );
-                
-                // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                if (newContent !== undefined && newContent !== existingComment.content) {
-                    await commentManager.editComment(editor.document.uri, existingComment.id, newContent);
-                    // 刷新标签和界面
-                    tagManager.updateTags(commentManager.getAllComments());
-                    commentProvider.refresh();
-                    commentTreeProvider.refresh();
+                    if (localComment) {
+                        // 有本地注释，编辑本地注释
+                        const matchedComments = commentManager.getComments(editor.document.uri);
+                        const isMatched = matchedComments.some(c => c.id === localComment.id);
+                        
+                        let contextInfo: any = {
+                            fileName,
+                            lineNumber: line,
+                            originalLineContent: localComment.lineContent, // 注释保存的代码快照
+                            filePath: editor.document.uri.fsPath // 始终设置完整的文件路径
+                        };
+
+                        if (isMatched) {
+                            // 注释能匹配到代码，显示完整的上下文信息
+                            const codeContext = await getCodeContext(editor.document.uri, line);
+                            
+                            contextInfo.lineContent = lineContent; // 当前行的实际内容
+                            contextInfo.contextLines = codeContext.contextLines;
+                            contextInfo.contextStartLine = codeContext.contextStartLine;
+                        }
+                        
+                        const newContent = await showMarkdownWebviewInput(
+                            context!,
+                            '编辑多行本地注释',
+                            '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
+                            localComment.content,
+                            contextInfo,
+                            '',
+                            createSaveAndContinueCallback('edit', editor.document.uri, localComment.id, localComment.line, localComment.content),
+                            isUserLoggedIn,
+                            false // 本地注释始终为false
+                        );
+                        
+                        // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
+                        if (newContent !== undefined && newContent !== localComment.content) {
+                            await commentManager.editComment(editor.document.uri, localComment.id, newContent);
+                            // 刷新标签和界面
+                            tagManager.updateTags(commentManager.getAllComments());
+                            commentProvider.refresh();
+                            commentTreeProvider.refresh();
+                        }
+                    } else {
+                        // 没有本地注释，添加新的本地注释
+                        const content = await showMarkdownWebviewInput(
+                            context!,
+                            '添加多行本地注释',
+                            '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
+                            '',
+                            {
+                                fileName,
+                                filePath: editor.document.uri.fsPath, // 添加完整的文件路径
+                                lineNumber: line,
+                                lineContent,
+                                // 暂时不包含上下文，让webview先显示
+                            },
+                            '',
+                            createSaveAndContinueCallback('add', editor.document.uri, '', line, ''),
+                            isUserLoggedIn,
+                            false // 新注释默认未分享
+                        );
+                        
+                        // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
+                        if (content !== undefined && content.trim() !== '') {
+                            await commentManager.addComment(editor.document.uri, line, content);
+                            // 刷新标签和界面
+                            tagManager.updateTags(commentManager.getAllComments());
+                            commentProvider.refresh();
+                            commentTreeProvider.refresh();
+                        }
+                    }
+                } else {
+                    // 这是本地注释，直接编辑
+                    const matchedComments = commentManager.getComments(editor.document.uri);
+                    const isMatched = matchedComments.some(c => c.id === existingComment.id);
+                    
+                    let contextInfo: any = {
+                        fileName,
+                        lineNumber: line,
+                        originalLineContent: existingComment.lineContent, // 注释保存的代码快照
+                        filePath: editor.document.uri.fsPath // 始终设置完整的文件路径
+                    };
+
+                    if (isMatched) {
+                        // 注释能匹配到代码，显示完整的上下文信息
+                        const codeContext = await getCodeContext(editor.document.uri, line);
+                        
+                        contextInfo.lineContent = lineContent; // 当前行的实际内容
+                        contextInfo.contextLines = codeContext.contextLines;
+                        contextInfo.contextStartLine = codeContext.contextStartLine;
+                    }
+                    
+                    const newContent = await showMarkdownWebviewInput(
+                        context!,
+                        '编辑多行本地注释',
+                        '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
+                        existingComment.content,
+                        contextInfo,
+                        '',
+                        createSaveAndContinueCallback('edit', editor.document.uri, existingComment.id, existingComment.line, existingComment.content),
+                        isUserLoggedIn,
+                        false // 本地注释始终为false
+                    );
+                    
+                    // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
+                    if (newContent !== undefined && newContent !== existingComment.content) {
+                        await commentManager.editComment(editor.document.uri, existingComment.id, newContent);
+                        // 刷新标签和界面
+                        tagManager.updateTags(commentManager.getAllComments());
+                        commentProvider.refresh();
+                        commentTreeProvider.refresh();
+                    }
                 }
             } else {
                 // 如果没有现有注释，添加新注释

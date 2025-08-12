@@ -55,22 +55,52 @@ export function registerCommands(
     const showStorageStatsCommand = vscode.commands.registerCommand('localComment.showStorageStats', () => {
         const projectInfo = commentManager.getProjectInfo();
         const allComments = commentManager.getAllComments();
-        const fileCount = Object.keys(allComments).length;
-        const totalComments = Object.values(allComments).reduce((sum, comments) => sum + comments.length, 0);
+        const allSharedComments = commentManager.getAllSharedComments();
+        
+        // 只统计本地注释，不包括共享注释
+        let localFileCount = 0;
+        let localTotalComments = 0;
+        const localFileDetails: { [filePath: string]: number } = {};
+        
+        for (const [filePath, comments] of Object.entries(allComments)) {
+            const localComments = comments.filter(comment => !('userId' in comment));
+            if (localComments.length > 0) {
+                localFileCount++;
+                localTotalComments += localComments.length;
+                localFileDetails[filePath] = localComments.length;
+            }
+        }
+        
+        // 统计共享注释信息
+        const sharedFileCount = Object.keys(allSharedComments).length;
+        const sharedTotalComments = Object.values(allSharedComments).reduce((sum, comments) => sum + comments.length, 0);
         
         // 统计标签信息
         const tagDeclarations = tagManager.getTagDeclarations();
         const tagReferences = tagManager.getTagReferences();
         
         let message = `${projectInfo.name} 项目注释统计:\n\n`;
-        message += `包含注释的文件: ${fileCount} 个\n`;
-        message += `总注释数量: ${totalComments} 条\n`;
-        message += `标签声明: ${tagDeclarations.size} 个\n`;
-        message += `标签引用: ${tagReferences.length} 个\n\n`;
+        message += `本地注释:\n`;
+        message += `  包含注释的文件: ${localFileCount} 个\n`;
+        message += `  总注释数量: ${localTotalComments} 条\n`;
+        message += `\n共享注释:\n`;
+        message += `  包含注释的文件: ${sharedFileCount} 个\n`;
+        message += `  总注释数量: ${sharedTotalComments} 条\n`;
+        message += `\n标签信息:\n`;
+        message += `  标签声明: ${tagDeclarations.size} 个\n`;
+        message += `  标签引用: ${tagReferences.length} 个\n\n`;
         
-        if (fileCount > 0) {
-            message += `详细信息:\n`;
-            for (const [filePath, comments] of Object.entries(allComments)) {
+        if (localFileCount > 0) {
+            message += `本地注释详细信息:\n`;
+            for (const [filePath, commentCount] of Object.entries(localFileDetails)) {
+                const fileName = filePath.split(/[/\\]/).pop();
+                message += `• ${fileName}: ${commentCount} 条注释\n`;
+            }
+        }
+        
+        if (sharedFileCount > 0) {
+            message += `\n共享注释详细信息:\n`;
+            for (const [filePath, comments] of Object.entries(allSharedComments)) {
                 const fileName = filePath.split(/[/\\]/).pop();
                 message += `• ${fileName}: ${comments.length} 条注释\n`;
             }

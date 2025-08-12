@@ -442,10 +442,13 @@ export class UserInfoWebview {
         };
 
         try {
-            // 获取注释数量
+            // 获取注释数量（只统计本地注释，不包括共享注释）
             if (this._commentManager) {
                 const allComments = this._commentManager.getAllComments();
-                stats.comments = Object.values(allComments).reduce((total, comments) => total + comments.length, 0);
+                stats.comments = Object.values(allComments).reduce((total, comments) => {
+                    const localComments = comments.filter(comment => !('userId' in comment));
+                    return total + localComments.length;
+                }, 0);
             }
 
             // 获取书签数量

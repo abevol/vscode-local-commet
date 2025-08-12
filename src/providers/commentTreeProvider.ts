@@ -58,9 +58,12 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
         const allFiles = new Set([...Object.keys(allComments), ...Object.keys(allBookmarks)]);
 
         for (const filePath of allFiles) {
-            const comments = allComments[filePath] || [];
+            const allFileComments = allComments[filePath] || [];
             const bookmarks = allBookmarks[filePath] || [];
-            const totalCount = comments.length + bookmarks.length;
+            
+            // 只统计本地注释，不包括共享注释
+            const localComments = allFileComments.filter(comment => !('userId' in comment));
+            const totalCount = localComments.length + bookmarks.length;
             
             if (totalCount > 0) {
                 const fileName = path.basename(filePath);
