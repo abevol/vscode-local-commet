@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { CommentManager, SharedComment } from '../managers/commentManager';
 import { createDataUri } from '../utils/utils';
 
-export class SharedCommentProvider implements vscode.Disposable {
+export class SharedCommentProvider implements vscode.Disposable, vscode.HoverProvider {
     private decorationType: vscode.TextEditorDecorationType;
     private commentManager: CommentManager;
     private isVisible: boolean = true;
@@ -15,11 +15,14 @@ export class SharedCommentProvider implements vscode.Disposable {
     constructor(commentManager: CommentManager) {
         this.commentManager = commentManager;
 
-        // 初始化共享注释装饰类型
+        // 初始化共享注释装饰类型 - 改为行内显示
         this.decorationType = vscode.window.createTextEditorDecorationType({
-            // 在行号区域显示云朵图标
-            gutterIconPath: undefined, // 稍后设置
-            gutterIconSize: 'contain'
+            after: {
+                color: '#6B7283', // 灰蓝色，与本地注释区分
+                fontStyle: 'italic',
+                margin: '0 0 0 0.8em'
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
 
         // 监听编辑器变化
@@ -52,10 +55,14 @@ export class SharedCommentProvider implements vscode.Disposable {
         // 先释放旧的装饰类型
         this.decorationType.dispose();
 
-        // 创建新的装饰类型，包含云朵图标
+        // 创建新的装饰类型，包含云朵图标和行内显示
         this.decorationType = vscode.window.createTextEditorDecorationType({
-            gutterIconPath: this.cloudIconUri ? vscode.Uri.parse(this.cloudIconUri) : undefined,
-            gutterIconSize: 'contain'
+            after: {
+                color: '#6B7283', // 灰蓝色，与本地注释区分
+                fontStyle: 'italic',
+                margin: '0 0 0 0.8em'
+            },
+            rangeBehavior: vscode.DecorationRangeBehavior.ClosedClosed
         });
     }
 
@@ -84,6 +91,10 @@ export class SharedCommentProvider implements vscode.Disposable {
         const document = editor.document;
         const uri = document.uri;
         
+        // 获取当前光标位置
+        const currentPosition = editor.selection.active;
+        const currentLine = currentPosition.line;
+        
         // 获取所有共享注释
         const allSharedComments = this.commentManager.getAllSharedComments();
         const filePath = document.uri.fsPath;
@@ -105,28 +116,23 @@ export class SharedCommentProvider implements vscode.Disposable {
 
         const sharedDecorations: vscode.DecorationOptions[] = [];
 
-        // 为每一行创建共享注释装饰器
-        for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber++) {
-            const lineComments = sharedComments.filter(comment => comment.line === lineNumber);
-            
-            if (lineComments.length === 0) {
-                continue;
+        // 只显示当前光标所在行的共享注释装饰器
+        const lineComments = sharedComments.filter(comment => comment.line === currentLine);
+        
+        if (lineComments.length > 0) {
+            // 如果这一行已经有本地注释，跳过共享注释装饰器（优先级：本地注释 > 共享注释）
+            if (!localCommentsByLine.has(currentLine)) {
+                // 只显示匹配的共享注释装饰器
+                const matchedComments = lineComments.filter(comment => comment.isMatched !== false);
+                
+                if (matchedComments.length > 0) {
+                    // 创建匹配的共享注释装饰器
+                    const decoration = this.createSharedCommentDecoration(currentLine, matchedComments, document);
+                    if (decoration) {
+                        sharedDecorations.push(decoration);
+                    }
+                }
             }
-
-            // 如果这一行已经有本地注释，跳过共享注释装饰器
-            if (localCommentsByLine.has(lineNumber)) {
-                continue;
-            }
-
-            // 只显示匹配的共享注释装饰器
-            const hasMatchedComment = lineComments.some(comment => comment.isMatched !== false);
-            
-            if (hasMatchedComment) {
-                // 创建匹配的共享注释装饰器
-                const decoration = this.createSharedCommentDecoration(lineNumber);
-                sharedDecorations.push(decoration);
-            }
-            // 未匹配的注释不显示任何装饰器
         }
 
         // 应用装饰器
@@ -134,9 +140,41 @@ export class SharedCommentProvider implements vscode.Disposable {
     }
 
     // 创建共享注释的装饰器
-    private createSharedCommentDecoration(lineNumber: number): vscode.DecorationOptions {
+    private createSharedCommentDecoration(lineNumber: number, comments: SharedComment[], document: vscode.TextDocument): vscode.DecorationOptions | null {
+        if (comments.length === 0) {
+            return null;
+        }
+
+        const line = document.lineAt(lineNumber);
+        const lineLength = line.text.length;
+
+        // 构建显示文本 - 显示第一条匹配的共享注释
+        const firstComment = comments[0];
+        let contentText = '';
+        
+        // 添加云朵图标标识和注释内容
+        if (firstComment.username) {
+            contentText = `  [${firstComment.username}] ${firstComment.content}`;
+        } else {
+            contentText = ` [用户${firstComment.userId}] ${firstComment.content}`;
+        }
+
+        // 如果内容太长，截断显示
+        const maxLength = 80;
+        if (contentText.length > maxLength) {
+            contentText = contentText.substring(0, maxLength) + '...';
+        }
+
         return {
-            range: new vscode.Range(lineNumber, 0, lineNumber, 0)
+            range: new vscode.Range(lineNumber, lineLength, lineNumber, lineLength),
+            renderOptions: {
+                after: {
+                    contentText: contentText,
+                    color: '#6B7283', // 灰蓝色，与本地注释区分
+                    fontStyle: 'italic',
+                    margin: '0 0 0 0.8em'
+                }
+            }
         };
     }
 
@@ -162,5 +200,76 @@ export class SharedCommentProvider implements vscode.Disposable {
             this.updateDecorations();
             this.updateTimer = null;
         }, 100); // 100ms防抖延迟
+    }
+
+    // 添加hover提供器功能
+    public async provideHover(document: vscode.TextDocument, position: vscode.Position): Promise<vscode.Hover | undefined> {
+        if (!this.isVisible) {
+            return undefined;
+        }
+
+        const line = position.line;
+        
+        // 检查是否有本地注释（优先级：本地注释 > 共享注释）
+        const localComments = this.commentManager.getComments(document.uri);
+        const lineLocalComments = localComments.filter(c => c.line === line && !('userId' in c));
+        
+        // 如果这一行有本地注释，不显示共享注释的hover
+        if (lineLocalComments.length > 0) {
+            return undefined;
+        }
+
+        // 获取共享注释
+        const allSharedComments = this.commentManager.getAllSharedComments();
+        const filePath = document.uri.fsPath;
+        const sharedComments = allSharedComments[filePath] || [];
+        const lineSharedComments = sharedComments.filter(c => c.line === line && c.isMatched !== false);
+
+        if (lineSharedComments.length === 0) {
+            return undefined;
+        }
+
+        const markdownContent = new vscode.MarkdownString();
+        markdownContent.isTrusted = true;
+
+        // 显示共享注释的hover信息
+        markdownContent.appendMarkdown(`**共享注释**\n\n`);
+
+        for (let i = 0; i < lineSharedComments.length; i++) {
+            const comment = lineSharedComments[i];
+
+            if (i > 0) {
+                markdownContent.appendMarkdown(`---\n\n`);
+            }
+
+            // 显示用户信息
+            if (comment.username) {
+                markdownContent.appendMarkdown(`**用户**: ${comment.username}\n\n`);
+            } else {
+                markdownContent.appendMarkdown(`**用户ID**: ${comment.userId}\n\n`);
+            }
+
+            // 显示注释内容
+            markdownContent.appendMarkdown(`**内容**:\n${comment.content}\n\n`);
+
+            // 显示代码上下文（如果有的话）
+            if (comment.lineContent) {
+                markdownContent.appendMarkdown(`**上下文内容**: \`${comment.lineContent}\`\n\n`);
+            }
+
+            // 显示时间戳
+            if (comment.timestamp) {
+                markdownContent.appendMarkdown(`**时间**: ${new Date(comment.timestamp).toLocaleString()}\n\n`);
+            }
+
+            // 添加查看详情的链接
+            markdownContent.appendMarkdown(`[查看详情](command:localComment.showShareComment?${encodeURIComponent(JSON.stringify({
+                commentId: comment.id,
+                filePath: filePath,
+                line: comment.line
+            }))} "查看共享注释详情")`);
+        }
+
+        return new vscode.Hover(markdownContent);
     }
 }

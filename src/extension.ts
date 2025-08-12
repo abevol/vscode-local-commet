@@ -370,9 +370,16 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // 在注册自动补全和定义提供器的部分后添加
+    // 注册本地注释的hover提供器
     const hoverDisposable = vscode.languages.registerHoverProvider(
         { scheme: 'file' },
         commentProvider
+    );
+
+    // 注册共享注释的hover提供器
+    const sharedHoverDisposable = vscode.languages.registerHoverProvider(
+        { scheme: 'file' },
+        sharedCommentProvider
     );
 
     context.subscriptions.push(
@@ -392,6 +399,7 @@ export function activate(context: vscode.ExtensionContext) {
         completionDisposable,
         definitionDisposable,
         hoverDisposable,
+        sharedHoverDisposable,
         fileHeatManager,
         bookmarkManager,
         bookmarkDecorationProvider

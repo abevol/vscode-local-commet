@@ -921,16 +921,32 @@ export function registerCommands(
     });
 
     // 显示共享注释Webview命令
-    const showShareCommentCommand = vscode.commands.registerCommand('localComment.showShareComment', async (treeItem: any) => {
+    const showShareCommentCommand = vscode.commands.registerCommand('localComment.showShareComment', async (treeItemOrParams: any) => {
         try {
-            // 从树项中获取共享注释数据
-            if (!treeItem || !treeItem.sharedComment) {
+            let comment: any;
+            let filePath: string;
+            
+            // 检查参数类型：可能是树项或hover参数
+            if (treeItemOrParams && treeItemOrParams.sharedComment) {
+                // 从树项中获取共享注释数据
+                comment = treeItemOrParams.sharedComment;
+                filePath = treeItemOrParams.filePath;
+            } else if (treeItemOrParams && treeItemOrParams.commentId) {
+                // 从hover参数中获取共享注释数据
+                const allSharedComments = commentManager.getAllSharedComments();
+                const sharedComments = allSharedComments[treeItemOrParams.filePath] || [];
+                comment = sharedComments.find(c => c.id === treeItemOrParams.commentId);
+                
+                if (!comment) {
+                    vscode.window.showErrorMessage('无法找到指定的共享注释');
+                    return;
+                }
+                
+                filePath = treeItemOrParams.filePath;
+            } else {
                 vscode.window.showErrorMessage('无法获取共享注释数据');
                 return;
             }
-            
-            const comment = treeItem.sharedComment;
-            const filePath = treeItem.filePath;
             
             // 导入showShareCommentWebview函数
             const { showShareCommentWebview } = require('../shareCommentWebview');
@@ -941,7 +957,11 @@ export function registerCommands(
                 lineNumber: comment.line,
                 lineContent: comment.lineContent,
                 filePath: filePath,
-                commentContent: comment.content // 新增：注释内容
+                commentContent: comment.content,
+                sharedCommentId: comment.id,
+                userId: comment.userId,
+                username: comment.username,
+                timestamp: comment.timestamp
             };
             
             // 显示Webview
