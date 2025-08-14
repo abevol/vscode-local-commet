@@ -11,6 +11,7 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
 
     // 预加载的图标URIs
     private cloudIconUri: string | null = null;
+    private markdownIconUri: string | null = null;
 
     constructor(commentManager: CommentManager) {
         this.commentManager = commentManager;
@@ -40,13 +41,18 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
         this.updateDecorations();
     }
 
-    // 异步加载云朵图标
+    // 异步加载图标
     private async loadIcons(): Promise<void> {
         try {
             const context = this.commentManager.getContext();
-            this.cloudIconUri = await createDataUri(context, 'src/resources/cloud.svg');
+            const [cloudIcon, markdown] = await Promise.all([
+                createDataUri(context, 'src/resources/cloud.svg'),
+                createDataUri(context, 'src/resources/markdown.svg')
+            ]);
+            this.cloudIconUri = cloudIcon;
+            this.markdownIconUri = markdown;
         } catch (error) {
-            console.error('加载云朵图标失败:', error);
+            console.error('加载图标失败:', error);
         }
     }
 
@@ -231,9 +237,13 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
 
         const markdownContent = new vscode.MarkdownString();
         markdownContent.isTrusted = true;
+        markdownContent.supportHtml = true;
 
         // 显示共享注释的hover信息
-        markdownContent.appendMarkdown(`**共享注释**\n\n`);
+        const markdownIconUri = this.markdownIconUri || '';
+        const markdown = `<img src="${markdownIconUri}" width="12" height="12" alt="查看详情" style="vertical-align: middle; margin-left: 4px;" />`;
+        
+        markdownContent.appendMarkdown(`**共享注释** \n\n`);
 
         for (let i = 0; i < lineSharedComments.length; i++) {
             const comment = lineSharedComments[i];
@@ -244,7 +254,11 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
 
             // 显示用户信息
             if (comment.username) {
-                markdownContent.appendMarkdown(`**用户**: ${comment.username}\n\n`);
+                markdownContent.appendMarkdown(`**用户**: ${comment.username}[${markdown}](command:localComment.showShareComment?${encodeURIComponent(JSON.stringify({
+                    commentId: comment.id,
+                    filePath: filePath,
+                    line: comment.line
+        }))} "查看共享注释详情")：\n\n`);
             } else {
                 markdownContent.appendMarkdown(`**用户ID**: ${comment.userId}\n\n`);
             }

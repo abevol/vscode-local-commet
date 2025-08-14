@@ -378,7 +378,16 @@ export class CommentProvider implements vscode.Disposable {
                     markdownContent.appendMarkdown(`---\n\n`);
                 }
 
-                markdownContent.appendMarkdown(`**本地注释**\n\n`);
+                // 创建编辑参数
+                const editArgs = JSON.stringify({
+                    uri: document.uri.toString(),
+                    commentId: comment.id,
+                    line: comment.line
+                });
+
+                const editIcon = `<img src="${editIconUri}" width="12" height="12" alt="编辑" style="vertical-align: middle; margin-left: 4px;" />`;
+                
+                markdownContent.appendMarkdown(`**本地注释** [${editIcon}](command:localComment.editCommentFromHover?${encodeURIComponent(editArgs)} "编辑注释")\n\n`);
 
                 // 处理用户输入的转义字符
                 const processedContent = this.processMarkdownContent(comment.content);
@@ -436,23 +445,15 @@ export class CommentProvider implements vscode.Disposable {
                 markdownContent.appendMarkdown(`*${new Date(comment.timestamp).toLocaleString()}*\n\n`);
 
                 // 本地注释显示完整的操作按钮
-                const editArgs = JSON.stringify({
-                    uri: document.uri.toString(),
-                    commentId: comment.id,
-                    line: comment.line
-                });
-
                 const removeArgs = JSON.stringify({
                     uri: document.uri.toString(),
                     commentId: comment.id,
                     line: comment.line
                 });
 
-                const editIcon = `<img src="${editIconUri}" width="16" height="16" alt="编辑" style="vertical-align: middle; " />`;
                 const deleteIcon = `<img src="${deleteIconUri}" width="16" height="16" alt="删除" style="vertical-align: middle;" />`;
                 const markDownIcon = `<img src="${markDownIconUri}" width="16" height="16" alt="Markdown编辑" style="vertical-align: middle;" />`;
 
-                markdownContent.appendMarkdown(`[${editIcon} 编辑](command:localComment.quickEditCommentFromHover?${encodeURIComponent(editArgs)} "快速编辑注释") | `);
                 markdownContent.appendMarkdown(`[${markDownIcon} Markdown编辑](command:localComment.editCommentFromHover?${encodeURIComponent(editArgs)} "多行编辑注释") | `);
                 markdownContent.appendMarkdown(`[${deleteIcon} 删除](command:localComment.removeCommentFromHover?${encodeURIComponent(removeArgs)} "删除注释")`);
             }
