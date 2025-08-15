@@ -466,7 +466,16 @@ export class CommentProvider implements vscode.Disposable {
                 // 显示共享注释的简要信息
                 for (const sharedComment of lineSharedComments) {
                     const username = sharedComment.username || `用户${sharedComment.userId}`;
-                    markdownContent.appendMarkdown(`**${username}**: ${sharedComment.content.substring(0, 50)}${sharedComment.content.length > 50 ? '...' : ''}\n\n`);
+                    
+                    // 创建查看详情的命令参数
+                    const detailArgs = JSON.stringify({
+                        commentId: sharedComment.id,
+                        filePath: document.uri.fsPath,
+                        line: sharedComment.line
+                    });
+                    
+                    // 添加详情按钮
+                    markdownContent.appendMarkdown(`**${username}**: ${sharedComment.content.substring(0, 150)}${sharedComment.content.length > 150 ? '...' : ''} [查看详情](command:localComment.showShareComment?${encodeURIComponent(detailArgs)} "查看共享评论详情")\n\n`);
                 }
             }
 

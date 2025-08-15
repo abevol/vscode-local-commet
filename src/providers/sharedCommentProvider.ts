@@ -10,7 +10,6 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
     private updateTimer: NodeJS.Timeout | null = null; // 防抖定时器
 
     // 预加载的图标URIs
-    private cloudIconUri: string | null = null;
     private markdownIconUri: string | null = null;
 
     constructor(commentManager: CommentManager) {
@@ -45,11 +44,7 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
     private async loadIcons(): Promise<void> {
         try {
             const context = this.commentManager.getContext();
-            const [cloudIcon, markdown] = await Promise.all([
-                createDataUri(context, 'src/resources/cloud.svg'),
-                createDataUri(context, 'src/resources/markdown.svg')
-            ]);
-            this.cloudIconUri = cloudIcon;
+            const markdown = await createDataUri(context, 'src/resources/markdown.svg');
             this.markdownIconUri = markdown;
         } catch (error) {
             console.error('加载图标失败:', error);
