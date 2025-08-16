@@ -6,6 +6,15 @@
     let markedInitialized = false;
     let mermaidInitialized = false;
 
+    // HTML转义函数
+    function escapeHtml(text) {
+        if (typeof text !== 'string') return text;
+        return text
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
     // 防抖函数
     function debounce(func, wait) {
         let timeout;
@@ -316,6 +325,9 @@
         } else if (message.command === 'updateCodeContext') {
             // 异步更新代码上下文
             updateCodeContext(message.contextLines, message.contextStartLine, message.lineNumber);
+        } else if (message.command === 'updateCurrentLineContent') {
+            // 更新当前行内容显示
+            updateCurrentLineContent(message.lineContent, message.lineNumber);
         } else if (message.command === 'setMermaidTheme') {
             const handDrawn = message.theme === 'hand-drawn';
             if (initializeMermaid(handDrawn)) {
@@ -356,14 +368,10 @@
                 const isTargetLine = currentLineNumber === lineNumber;
                 const lineClass = isTargetLine ? 'target-line' : 'context-line';
                 const lineNumberDisplay = currentLineNumber + 1;
-                
-                const escapedLine = line
-                    .replace(/&/g, '&amp;')
-                    .replace(/</g, '&lt;')
-                    .replace(/>/g, '&gt;');
+                const escapedLine = escapeHtml(line);
                 
                 contextHtml += `
-                    <div class="code-line ${lineClass}">
+                    <div class="code-line ${lineClass}" data-line-number="${currentLineNumber}">
                         <span class="line-number">${lineNumberDisplay}</span>
                         <span class="line-content">${escapedLine}</span>
                     </div>
@@ -372,6 +380,124 @@
             
             previewContainer.innerHTML = contextHtml;
             console.log('代码上下文已更新:', contextLines.length + ' 行');
+            
+            // 同步更新当前行内容显示
+            if (lineNumber !== undefined) {
+                const relativeLineIndex = lineNumber - contextStartLine;
+                if (relativeLineIndex >= 0 && relativeLineIndex < contextLines.length) {
+                    const currentLineContent = contextLines[relativeLineIndex];
+                    updateCurrentLineContent(currentLineContent, lineNumber);
+                }
+                
+                // 更新行号栏显示
+                updateLineNumberDisplay(lineNumber);
+            }
+            
+            // 为每一行添加点击事件
+            const codeLines = previewContainer.querySelectorAll('.code-line');
+            codeLines.forEach(line => {
+                line.addEventListener('click', function() {
+                    // 移除所有行的高亮
+                    codeLines.forEach(l => l.classList.remove('target-line'));
+                    // 为当前点击的行添加高亮
+                    this.classList.add('target-line');
+                    
+                    // 获取行号
+                    const clickedLineNumber = parseInt(this.getAttribute('data-line-number'));
+                    
+                                    // 通知扩展更新选中的行
+                vscode.postMessage({
+                    command: 'updateSelectedLine',
+                    lineNumber: clickedLineNumber
+                });
+                
+                // 更新行号栏显示
+                updateLineNumberDisplay(clickedLineNumber);
+                
+                console.log('选中行已更新:', clickedLineNumber);
+                });
+                
+                // 添加鼠标悬停效果
+                line.addEventListener('mouseenter', function() {
+                    if (!this.classList.contains('target-line')) {
+                        this.classList.add('hover-line');
+                    }
+                });
+                
+                line.addEventListener('mouseleave', function() {
+                    this.classList.remove('hover-line');
+                });
+            });
+        }
+    }
+    
+    // 更新行号栏显示
+    function updateLineNumberDisplay(lineNumber) {
+        const codeTab = document.getElementById('code-tab');
+        if (!codeTab) return;
+        
+        // 查找行号显示区域
+        const contextItems = codeTab.querySelectorAll('.context-item');
+        let lineNumberItem = null;
+        
+        for (const item of contextItems) {
+            const label = item.querySelector('.context-label');
+            if (label && label.textContent === '行号:') {
+                lineNumberItem = item;
+                break;
+            }
+        }
+        
+        if (lineNumberItem) {
+            const lineNumberValue = lineNumberItem.querySelector('.context-value');
+            if (lineNumberValue) {
+                lineNumberValue.textContent = `第 ${lineNumber + 1} 行`;
+            }
+        }
+    }
+    
+    // 更新当前行内容显示
+    function updateCurrentLineContent(lineContent, lineNumber) {
+        const codeTab = document.getElementById('code-tab');
+        if (!codeTab) return;
+        
+        // 查找或创建"当前代码"显示区域
+        let currentCodeItem = codeTab.querySelector('.context-item:has(.current-code)');
+        if (!currentCodeItem) {
+            // 如果没有找到，查找"代码上下文"区域，在其前插入"当前代码"区域
+            const contextItem = codeTab.querySelector('.context-item:has(.code-context-preview)');
+            if (contextItem) {
+                const currentCodeHtml = `
+                    <div class="context-item">
+                        <span class="context-label">当前代码:</span>
+                        <div class="context-value">
+                            <div class="code-preview current-code"></div>
+                        </div>
+                    </div>
+                `;
+                contextItem.insertAdjacentHTML('beforebegin', currentCodeHtml);
+                currentCodeItem = codeTab.querySelector('.context-item:has(.current-code)');
+            }
+        }
+        
+        if (currentCodeItem) {
+            const currentCodePreview = currentCodeItem.querySelector('.current-code');
+            if (currentCodePreview) {
+                // 转义HTML内容
+                const escapedContent = escapeHtml(lineContent);
+                
+                // 使用innerHTML来正确显示转义后的内容，避免HTML实体被显示为原始字符
+                currentCodePreview.innerHTML = escapedContent;
+                
+                                 // 更新标签显示
+                 const contextLabel = currentCodeItem.querySelector('.context-label');
+                 if (contextLabel) {
+                     // 使用textContent确保内容被正确转义
+                     contextLabel.textContent = '当前代码:';
+                 }
+                
+                console.log('当前行内容已更新:', lineNumber + 1, lineContent);
+            }
         }
     }
     

@@ -84,13 +84,38 @@
     border-bottom: 1px solid transparent;
     min-width: max-content;
     white-space: nowrap;
+    cursor: pointer; /* 添加指针样式，表明可点击 */
+    transition: background-color 0.15s ease; /* 添加过渡效果 */
+    position: relative; /* 为伪元素定位 */
 }
+
 .code-line:hover {
     background-color: var(--vscode-list-hoverBackground);
 }
+
+.code-line.hover-line {
+    background-color: var(--vscode-list-hoverBackground);
+}
+
 .code-line.target-line {
     background-color: var(--vscode-editor-selectionBackground);
     border-color: var(--vscode-editor-selectionBorder);
+}
+
+/* 添加左侧高亮条 */
+.code-line.target-line::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background-color: var(--vscode-focusBorder);
+}
+
+/* 添加点击效果 */
+.code-line:active {
+    background-color: var(--vscode-list-activeSelectionBackground);
 }
 .line-number {
     color: var(--vscode-editorLineNumber-foreground);

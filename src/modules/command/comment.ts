@@ -15,6 +15,16 @@ export function registerCommentCommands(
     commentTreeProvider: CommentTreeProvider,
     context?: vscode.ExtensionContext
 ): vscode.Disposable[] {
+    
+    /**
+     * 刷新所有本地注释相关的视图和显示
+     * 统一处理注释内容、注释树等所有相关组件的刷新
+     */
+    function refreshAllCommentViews(): void {
+        commentProvider.refresh();      // 更新编辑器里的本地注释内容
+        commentTreeProvider.refresh();  // 刷新注释树
+    }
+
     // 辅助函数：创建保存并继续的回调函数
     function createSaveAndContinueCallback(
         operation: 'edit' | 'add',
@@ -23,32 +33,74 @@ export function registerCommentCommands(
         line: number,
         originalContent: string
     ) {
-        return (savedContent: string) => {
-            // 对于添加操作，检查内容是否为空
-            if (operation === 'add' && (!savedContent || savedContent.trim() === '')) {
-                return;
+        // 辅助函数：处理编辑注释的逻辑
+        async function handleEditComment(savedContent: string, updatedContextInfo?: any) {
+            // 如果行号有变化，需要先更新注释的行号
+            if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== line) {
+                await commentManager.updateCommentLine(uri, commentId, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
             }
-            
-            // 对于编辑操作，检查内容是否发生变化
-            if (operation === 'edit' && savedContent === originalContent) {
-                return;
-            }
-            
-            const promise = operation === 'edit' 
-                ? commentManager.editComment(uri, commentId, savedContent)
-                : commentManager.addComment(uri, line, savedContent);
-            
-            promise.then(() => {
+            return commentManager.editComment(uri, commentId, savedContent);
+        }
+
+        return async (savedContent: string, updatedContextInfo?: any,callback?: () => void) => {
+            try {
+                // 对于添加操作，检查内容是否为空
+                if (operation === 'add' && (!savedContent || savedContent.trim() === '')) {
+                    return;
+                }
+                
+                // 对于编辑操作，检查内容是否发生变化
+                if (operation === 'edit' && savedContent === originalContent) {
+                    return;
+                }
+                
+                // 如果行号有变化，使用更新后的行号
+                const finalLine = updatedContextInfo?.lineNumber ?? line;
+                
+                // 检查目标行是否已有其他注释
+                if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== line) {
+                    const allComments = commentManager.getAllComments();
+                    const fileComments = allComments[uri.fsPath];
+                    
+                    if (fileComments) {
+                        const existingComment = fileComments.find(c => c.line === finalLine && c.id !== commentId);
+                        if (existingComment) {
+                            const replaceExisting = await vscode.window.showWarningMessage(
+                                `第${finalLine + 1}行已经有注释了：\n"${existingComment.content}"\n\n是否要替换它？`,
+                                { modal: true },
+                                '替换现有注释', '取消操作'
+                            );
+                            
+                            if (replaceExisting !== '替换现有注释') {
+                                return;
+                            }
+                            
+                            // 删除现有注释
+                            const existingIndex = commentManager.findCommentIndex(fileComments, existingComment.id);
+                            if (existingIndex >= 0) {
+                                fileComments.splice(existingIndex, 1);
+                            }
+                        }
+                    }
+                }
+                
+                const promise = operation === 'edit' 
+                    ? handleEditComment(savedContent, updatedContextInfo)
+                    : commentManager.addComment(uri, finalLine, savedContent);
+                
+                await promise;
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
-            });
+                refreshAllCommentViews();
+                callback && callback();
+            } catch (error) {
+                console.error('保存注释时发生错误:', error);
+                vscode.window.showErrorMessage(`保存失败: ${error}`);
+            }
         };
     }
 
     const refreshCommentsCommand = vscode.commands.registerCommand('localComment.refreshComments', () => {
-        commentProvider.refresh();  // 更新编辑器里的本地注释内容
-        commentTreeProvider.refresh(); // 刷新注释树
+        refreshAllCommentViews();
     });
 
     const refreshTreeCommand = vscode.commands.registerCommand('localComment.refreshTree', () => {
@@ -60,8 +112,7 @@ export function registerCommentCommands(
             const uri = vscode.Uri.file(item.filePath);
             await commentManager.removeComment(uri, item.comment.line);
             tagManager.updateTags(commentManager.getAllComments());
-            commentProvider.refresh();
-            commentTreeProvider.refresh();
+            refreshAllCommentViews();
         }
     });
 
@@ -78,8 +129,7 @@ export function registerCommentCommands(
                 const uri = vscode.Uri.file(item.filePath);
                 await commentManager.clearFileComments(uri);
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+                refreshAllCommentViews();
             }
         }
     });
@@ -96,8 +146,7 @@ export function registerCommentCommands(
             const removedCount = await commentManager.clearAllSharedComments();
             if (removedCount > 0) {
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+                refreshAllCommentViews();
             }
         }
     });
@@ -123,8 +172,7 @@ export function registerCommentCommands(
             const removedCount = await commentManager.clearFileSharedComments(uri);
             if (removedCount > 0) {
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+                refreshAllCommentViews();
             }
         }
     });
@@ -192,24 +240,62 @@ export function registerCommentCommands(
                 contextInfo.contextStartLine = codeContext.contextStartLine;
             }
 
-            const newContent = await showMarkdownWebviewInput(
+            const result = await showMarkdownWebviewInput(
                 context!,
                 '修改注释内容',
                 '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
                 comment.content,
                 contextInfo,
                 '',
-                createSaveAndContinueCallback('edit', documentUri, commentId, comment.line, comment.content),
+                (content: string, updatedContextInfo?: any) => {
+                    // 如果上下文信息有更新，使用更新后的行号
+                    const finalLine = updatedContextInfo?.lineNumber ?? comment.line;
+                    createSaveAndContinueCallback('edit', documentUri, commentId, finalLine, comment.content)(content);
+                },
                 new AuthManager(context!).isLoggedIn(),
                 comment.isShared || false
             );
 
             // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-            if (newContent !== undefined && newContent !== comment.content) {
-                await commentManager.editComment(documentUri, commentId, newContent);
-                tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+            if (result !== undefined) {
+                const newContent = typeof result === 'string' ? result : result.content;
+                const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                
+                if (newContent !== comment.content) {
+                    // 如果行号有变化，检查目标行是否已有其他注释
+                    if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== comment.line) {
+                        const allComments = commentManager.getAllComments();
+                        const fileComments = allComments[documentUri.fsPath];
+                        
+                        if (fileComments) {
+                            const existingComment = fileComments.find(c => c.line === updatedContextInfo.lineNumber && c.id !== commentId);
+                            if (existingComment) {
+                                const replaceExisting = await vscode.window.showWarningMessage(
+                                    `第${updatedContextInfo.lineNumber + 1}行已经有注释了：\n"${existingComment.content}"\n\n是否要替换它？`,
+                                    { modal: true },
+                                    '替换现有注释', '取消操作'
+                                );
+                                
+                                if (replaceExisting !== '替换现有注释') {
+                                    return;
+                                }
+                                
+                                // 删除现有注释
+                                const existingIndex = commentManager.findCommentIndex(fileComments, existingComment.id);
+                                if (existingIndex >= 0) {
+                                    fileComments.splice(existingIndex, 1);
+                                }
+                            }
+                        }
+                        
+                        // 更新注释行号和内容
+                        await commentManager.updateCommentLine(documentUri, commentId, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                    }
+                    
+                    await commentManager.editComment(documentUri, commentId, newContent);
+                    tagManager.updateTags(commentManager.getAllComments());
+                    refreshAllCommentViews();
+                }
             }
         } catch (error) {
             console.error('从hover编辑注释时发生错误:', error);
@@ -262,8 +348,7 @@ export function registerCommentCommands(
             if (newContent !== undefined && newContent !== comment.content) {
                 await commentManager.editComment(documentUri, commentId, newContent);
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+                refreshAllCommentViews();
             }
         } catch (error) {
             console.error('从hover快速编辑注释时发生错误:', error);
@@ -315,24 +400,33 @@ export function registerCommentCommands(
             contextInfo.contextStartLine = codeContext.contextStartLine;
         }
 
-        const newContent = await showMarkdownWebviewInput(
-            context!,
-            '编辑本地注释',
-            '请修改注释内容...',
-            comment.content,
-            contextInfo,
-            '',
-            createSaveAndContinueCallback('edit', editor.document.uri, comment.id, comment.line, comment.content),
-            new AuthManager(context!).isLoggedIn(),
-            comment.isShared || false
-        );
+            const result = await showMarkdownWebviewInput(
+                context!,
+                '编辑本地注释',
+                '请修改注释内容...',
+                comment.content,
+                contextInfo,
+                '',
+                createSaveAndContinueCallback('edit', editor.document.uri, comment.id, comment.line, comment.content),
+                new AuthManager(context!).isLoggedIn(),
+                comment.isShared || false
+            );
 
-        if (newContent !== undefined && newContent !== comment.content) {
-            await commentManager.editComment(editor.document.uri, comment.id, newContent);
-            tagManager.updateTags(commentManager.getAllComments());
-            commentProvider.refresh();
-            commentTreeProvider.refresh();
-        }
+            if (result !== undefined) {
+                const newContent = typeof result === 'string' ? result : result.content;
+                const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                
+                if (newContent !== comment.content) {
+                    // 如果行号有变化，需要先更新注释的行号
+                    if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== comment.line) {
+                        await commentManager.updateCommentLine(editor.document.uri, comment.id, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                    }
+                    
+                    await commentManager.editComment(editor.document.uri, comment.id, newContent);
+                    tagManager.updateTags(commentManager.getAllComments());
+                    refreshAllCommentViews();
+                }
+            }
     });
 
     const editCommentCommand = vscode.commands.registerCommand('localComment.editComment', async (uri: vscode.Uri, line: number) => {
@@ -371,7 +465,7 @@ export function registerCommentCommands(
             }
             
             // 使用新的WebView输入界面
-            const newContent = await showMarkdownWebviewInput(
+            const result = await showMarkdownWebviewInput(
                 context!,
                 '编辑本地注释',
                 '请修改注释内容...',
@@ -384,12 +478,21 @@ export function registerCommentCommands(
             );
             
             // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-            if (newContent !== undefined && newContent.trim() !== '') {
-                await commentManager.editComment(uri, comment.id, newContent);
-                // 刷新标签和界面
-                tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+            if (result !== undefined) {
+                const newContent = typeof result === 'string' ? result : result.content;
+                const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                
+                if (newContent.trim() !== '') {
+                    // 如果行号有变化，需要先更新注释的行号
+                    if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== comment.line) {
+                        await commentManager.updateCommentLine(uri, comment.id, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                    }
+                    
+                    await commentManager.editComment(uri, comment.id, newContent);
+                    // 刷新标签和界面
+                    tagManager.updateTags(commentManager.getAllComments());
+                    refreshAllCommentViews();
+                }
             }
         } catch (error) {
             console.error('编辑注释时出错:', error);
@@ -443,7 +546,7 @@ export function registerCommentCommands(
                     contextInfo.fileNotFound = true;
                 }
                 
-                const newContent = await showMarkdownWebviewInput(
+                const result = await showMarkdownWebviewInput(
                     context!,
                     fileExists ? '修改注释内容' : '修改注释内容 (原文件已删除)',
                     fileExists ? 
@@ -458,11 +561,20 @@ export function registerCommentCommands(
                 );
 
                 // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                if (newContent !== undefined && newContent !== item.comment.content) {
-                    await commentManager.editComment(uri, item.comment.id, newContent);
-                    tagManager.updateTags(commentManager.getAllComments());
-                    commentProvider.refresh();
-                    commentTreeProvider.refresh();
+                if (result !== undefined) {
+                    const newContent = typeof result === 'string' ? result : result.content;
+                    const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                    
+                    if (newContent !== item.comment.content) {
+                        // 如果行号有变化，需要先更新注释的行号
+                        if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== item.comment.line) {
+                            await commentManager.updateCommentLine(uri, item.comment.id, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                        }
+                        
+                        await commentManager.editComment(uri, item.comment.id, newContent);
+                        tagManager.updateTags(commentManager.getAllComments());
+                        refreshAllCommentViews();
+                    }
                 }
             } catch (error) {
                 console.error('编辑注释失败:', error);
@@ -762,8 +874,7 @@ export function registerCommentCommands(
                     await (commentManager as any).saveComments();
                     
                     // 刷新界面
-                    commentProvider.refresh();
-                    commentTreeProvider.refresh();
+                    refreshAllCommentViews();
                     
                     // 跳转到匹配的行
                     const editor = await vscode.window.showTextDocument(document);
@@ -914,8 +1025,7 @@ export function registerCommentCommands(
                     tagManager.updateTags(commentManager.getAllComments());
                     
                     // 刷新界面
-                    commentProvider.refresh();
-                    commentTreeProvider.refresh();
+                    refreshAllCommentViews();
                     
                     // 跳转到新的行
                     const editor = await vscode.window.showTextDocument(document);
@@ -985,7 +1095,7 @@ export function registerCommentCommands(
                             contextInfo.contextStartLine = codeContext.contextStartLine;
                         }
                         
-                        const newContent = await showMarkdownWebviewInput(
+                        const result = await showMarkdownWebviewInput(
                             context!,
                             '编辑多行本地注释',
                             '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -998,16 +1108,25 @@ export function registerCommentCommands(
                         );
                         
                         // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                        if (newContent !== undefined && newContent !== localComment.content) {
-                            await commentManager.editComment(editor.document.uri, localComment.id, newContent);
-                            // 刷新标签和界面
-                            tagManager.updateTags(commentManager.getAllComments());
-                            commentProvider.refresh();
-                            commentTreeProvider.refresh();
+                        if (result !== undefined) {
+                            const newContent = typeof result === 'string' ? result : result.content;
+                            const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                            
+                            if (newContent !== localComment.content) {
+                                // 如果行号有变化，需要先更新注释的行号
+                                if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== localComment.line) {
+                                    await commentManager.updateCommentLine(editor.document.uri, localComment.id, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                                }
+                                
+                                await commentManager.editComment(editor.document.uri, localComment.id, newContent);
+                                // 刷新标签和界面
+                                tagManager.updateTags(commentManager.getAllComments());
+                                refreshAllCommentViews();
+                            }
                         }
                     } else {
                         // 没有本地注释，添加新的本地注释
-                        const content = await showMarkdownWebviewInput(
+                        const result = await showMarkdownWebviewInput(
                             context!,
                             '添加多行本地注释',
                             '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -1026,12 +1145,18 @@ export function registerCommentCommands(
                         );
                         
                         // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                        if (content !== undefined && content.trim() !== '') {
-                            await commentManager.addComment(editor.document.uri, line, content);
-                            // 刷新标签和界面
-                            tagManager.updateTags(commentManager.getAllComments());
-                            commentProvider.refresh();
-                            commentTreeProvider.refresh();
+                        if (result !== undefined) {
+                            const content = typeof result === 'string' ? result : result.content;
+                            const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                            
+                            if (content.trim() !== '') {
+                                // 如果行号有变化，使用更新后的行号
+                                const finalLine = updatedContextInfo?.lineNumber ?? line;
+                                await commentManager.addComment(editor.document.uri, finalLine, content);
+                                // 刷新标签和界面
+                                tagManager.updateTags(commentManager.getAllComments());
+                                refreshAllCommentViews();
+                            }
                         }
                     }
                 } else {
@@ -1055,7 +1180,7 @@ export function registerCommentCommands(
                         contextInfo.contextStartLine = codeContext.contextStartLine;
                     }
                     
-                    const newContent = await showMarkdownWebviewInput(
+                    const result = await showMarkdownWebviewInput(
                         context!,
                         '编辑多行本地注释',
                         '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -1068,18 +1193,27 @@ export function registerCommentCommands(
                     );
                     
                     // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                    if (newContent !== undefined && newContent !== existingComment.content) {
-                        await commentManager.editComment(editor.document.uri, existingComment.id, newContent);
-                        // 刷新标签和界面
-                        tagManager.updateTags(commentManager.getAllComments());
-                        commentProvider.refresh();
-                        commentTreeProvider.refresh();
+                    if (result !== undefined) {
+                        const newContent = typeof result === 'string' ? result : result.content;
+                        const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                        
+                        if (newContent !== existingComment.content) {
+                            // 如果行号有变化，需要先更新注释的行号
+                            if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== existingComment.line) {
+                                await commentManager.updateCommentLine(editor.document.uri, existingComment.id, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
+                            }
+                            
+                            await commentManager.editComment(editor.document.uri, existingComment.id, newContent);
+                            // 刷新标签和界面
+                            tagManager.updateTags(commentManager.getAllComments());
+                            refreshAllCommentViews();
+                        }
                     }
                 }
             } else {
                 // 如果没有现有注释，添加新注释
                 // 优化：先显示编辑器，异步加载代码上下文
-                const content = await showMarkdownWebviewInput(
+                const result = await showMarkdownWebviewInput(
                     context!,
                     '添加多行本地注释',
                     '支持 Markdown 语法和多行输入，使用 $标签名 声明标签，使用 @标签名 引用标签',
@@ -1098,12 +1232,18 @@ export function registerCommentCommands(
                 );
                 
                 // 注意：如果使用了saveAndContinue，内容会通过回调函数保存，这里不需要重复保存
-                if (content !== undefined && content.trim() !== '') {
-                    await commentManager.addComment(editor.document.uri, line, content);
-                    // 刷新标签和界面
-                    tagManager.updateTags(commentManager.getAllComments());
-                    commentProvider.refresh();
-                    commentTreeProvider.refresh();
+                if (result !== undefined) {
+                    const content = typeof result === 'string' ? result : result.content;
+                    const updatedContextInfo = typeof result === 'object' ? result.contextInfo : undefined;
+                    
+                    if (content.trim() !== '') {
+                        // 如果行号有变化，使用更新后的行号
+                        const finalLine = updatedContextInfo?.lineNumber ?? line;
+                        await commentManager.addComment(editor.document.uri, finalLine, content);
+                        // 刷新标签和界面
+                        tagManager.updateTags(commentManager.getAllComments());
+                        refreshAllCommentViews();
+                    }
                 }
             }
         } catch (error) {
@@ -1135,8 +1275,7 @@ export function registerCommentCommands(
                 await commentManager.addComment(editor.document.uri, line, content);
                 // 刷新标签和界面
                 tagManager.updateTags(commentManager.getAllComments());
-                commentProvider.refresh();
-                commentTreeProvider.refresh();
+                refreshAllCommentViews();
             }
         } catch (error) {
             console.error('添加注释时出错:', error);
@@ -1168,8 +1307,7 @@ export function registerCommentCommands(
         try {
             await commentManager.convertSelectionToComment(editor.document.uri, selection, selectedText);
             tagManager.updateTags(commentManager.getAllComments());
-            commentProvider.refresh();
-            commentTreeProvider.refresh();
+            refreshAllCommentViews();
         } catch (error) {
             console.error('转换选中文字为注释失败:', error);
             vscode.window.showErrorMessage('转换失败，请重试');
@@ -1189,8 +1327,7 @@ export function registerCommentCommands(
         
         await commentManager.removeComment(editor.document.uri, line);
         tagManager.updateTags(commentManager.getAllComments());
-        commentProvider.refresh();
-        commentTreeProvider.refresh();
+        refreshAllCommentViews();
     });
 
     // 从hover删除注释命令
@@ -1234,8 +1371,7 @@ export function registerCommentCommands(
             // 删除注释
             await commentManager.removeCommentById(documentUri, commentId);
             tagManager.updateTags(commentManager.getAllComments());
-            commentProvider.refresh();
-            commentTreeProvider.refresh();
+            refreshAllCommentViews();
             // 删除注释无需提示，用户可以直接看到结果
         } catch (error) {
             console.error('从hover删除注释时发生错误:', error);

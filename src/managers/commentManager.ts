@@ -321,6 +321,52 @@ export class CommentManager {
         await this.saveComments();
     }
 
+    /**
+     * 更新注释的行号和相关内容
+     * 
+     * 当文件内容发生变化（如插入、删除行）导致注释原本所在的行号发生变化时，
+     * 此函数可以重新定位注释到新的行号，确保注释与代码行的对应关系保持同步。
+     * 
+     * @param uri - 文件URI，指定要更新注释的文件
+     * @param commentId - 注释的唯一标识符
+     * @param newLine - 新的行号（从0开始计数）
+     * @param newLineContent - 新行号对应的行内容
+     * @returns Promise<void> - 异步操作完成
+     * 
+     * @example
+     * // 将注释从第5行移动到第8行
+     * await commentManager.updateCommentLine(
+     *     fileUri, 
+     *     'comment-123', 
+     *     7, // 第8行（从0开始计数）
+     *     'const newCode = "example";'
+     * );
+     */
+    public async updateCommentLine(uri: vscode.Uri, commentId: string, newLine: number, newLineContent: string): Promise<void> {
+        const filePath = uri.fsPath;
+        
+        // 检查文件是否存在本地注释
+        if (!this.comments[filePath]) {
+            vscode.window.showWarningMessage('该文件没有本地注释');
+            return;
+        }
+
+        // 根据注释ID查找注释在数组中的索引
+        const commentIndex = this.findCommentIndex(this.comments[filePath], commentId);
+        if (commentIndex === -1) {
+            vscode.window.showWarningMessage('找不到指定的注释');
+            return;
+        }
+
+        // 更新注释的行号、行内容和时间戳
+        this.comments[filePath][commentIndex].line = newLine;
+        this.comments[filePath][commentIndex].lineContent = newLineContent;
+        this.comments[filePath][commentIndex].timestamp = Date.now(); // 更新时间戳
+
+        // 将更新后的注释保存到持久化存储
+        await this.saveComments();
+    }
+
     public getCommentById(uri: vscode.Uri, commentId: string): LocalComment | undefined {
         const filePath = uri.fsPath;
         const fileComments = this.comments[filePath];

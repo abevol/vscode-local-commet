@@ -63,10 +63,10 @@ export async function showMarkdownWebviewInput(
         filePath?: string; // 文件路径
     },
     markedJsUri: string = '',
-    onSaveAndContinue?: (content: string) => void,
+    onSaveAndContinue?: (content: string, updatedContextInfo?: any,callback?: () => void) => void,
     isUserLoggedIn: boolean = false,
     isCommentShared: boolean = false
-): Promise<string | undefined> {
+): Promise<{content: string, contextInfo?: any} | undefined> {
     // 保存当前活动编辑器的引用，以便稍后恢复焦点
     const activeEditor = vscode.window.activeTextEditor;
     
@@ -183,18 +183,68 @@ export async function showMarkdownWebviewInput(
             async message => {
                 switch (message.command) {
                     case 'save':
-                        resolve(message.content);
-                        panel.dispose();
-                        // WebView关闭后恢复编辑器焦点
-                        setTimeout(() => restoreFocus(activeEditor), 100);
+                        // 返回内容和更新后的上下文信息
+                        if (onSaveAndContinue) {
+                            onSaveAndContinue(message.content, contextInfo,()=>{
+                                panel.dispose();
+                                // WebView关闭后恢复编辑器焦点
+                                setTimeout(() => restoreFocus(activeEditor), 100);
+                            });
+                        }
                         break;
                     case 'saveAndContinue':
                         // 保存内容但不关闭编辑器
                         if (onSaveAndContinue) {
-                            onSaveAndContinue(message.content);
+                            onSaveAndContinue(message.content, contextInfo,()=>{
+                                vscode.window.showInformationMessage('保存成功');
+                            });
                         }
-                        // 显示保存成功提示
-                        vscode.window.showInformationMessage('保存成功');
+                        break;
+                    case 'updateSelectedLine':
+                        // 处理用户点击代码行的消息
+                        if (message.lineNumber !== undefined && contextInfo) {
+                            // 更新当前选中的行号
+                            contextInfo.lineNumber = message.lineNumber;
+                            
+                            // 如果有活动编辑器，尝试更新代码上下文
+                            if (activeEditor) {
+                                try {
+                                    // 获取新选中行的代码上下文
+                                    const codeContext = await getCodeContext(activeEditor.document.uri, message.lineNumber);
+                                    
+                                    // 更新contextInfo中的上下文信息
+                                    contextInfo.contextLines = codeContext.contextLines;
+                                    contextInfo.contextStartLine = codeContext.contextStartLine;
+                                    
+                                    // 更新当前行内容
+                                    if (codeContext.contextLines && codeContext.contextLines.length > 0) {
+                                        const relativeLineIndex = message.lineNumber - codeContext.contextStartLine;
+                                        if (relativeLineIndex >= 0 && relativeLineIndex < codeContext.contextLines.length) {
+                                            contextInfo.lineContent = codeContext.contextLines[relativeLineIndex];
+                                        }
+                                    }
+                                    
+                                    // 向webview发送更新后的代码上下文
+                                    panel.webview.postMessage({
+                                        command: 'updateCodeContext',
+                                        contextLines: codeContext.contextLines,
+                                        contextStartLine: codeContext.contextStartLine,
+                                        lineNumber: message.lineNumber
+                                    });
+                                    
+                                    // 同时发送当前行内容更新，让webview同步显示
+                                    panel.webview.postMessage({
+                                        command: 'updateCurrentLineContent',
+                                        lineContent: contextInfo.lineContent || '',
+                                        lineNumber: message.lineNumber
+                                    });
+                                    
+                                    console.log('已更新选中行:', message.lineNumber + 1);
+                                } catch (error) {
+                                    console.error('更新代码上下文失败:', error);
+                                }
+                            }
+                        }
                         break;
                     case 'share':
                         // 处理分享功能

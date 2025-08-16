@@ -461,7 +461,7 @@ export class CommentProvider implements vscode.Disposable {
             // 如果同一行有共享注释，添加提示信息
             if (lineSharedComments.length > 0) {
                 markdownContent.appendMarkdown(`\n\n---\n\n`);
-                markdownContent.appendMarkdown(`☁️ **这里还有别人的共享评论**\n\n`);
+                markdownContent.appendMarkdown(`**这里还有其他人的共享评论**\n\n`);
                 
                 // 显示共享注释的简要信息
                 for (const sharedComment of lineSharedComments) {
