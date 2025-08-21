@@ -188,8 +188,8 @@
             // 等待关键库初始化完成
             await initializationPromise;
 
-            // 1. 预处理Markdown，例如高亮@标签
-            let processedContent = content.replace(/@([a-zA-Z0-9_]+)/g, '<span style="color: var(--vscode-symbolIcon-functionForeground); font-weight: bold;">@$1</span>');
+            // 1. 预处理Markdown，例如高亮@标签并添加点击事件
+            let processedContent = content.replace(/@([a-zA-Z0-9_]+)/g, '<span class="tag-link" data-tag="$1" style="color: var(--vscode-symbolIcon-functionForeground); font-weight: bold; cursor: pointer; text-decoration: underline;">@$1</span>');
 
             // 2. 查找所有的Mermaid代码块
             const mermaidRegex = /```mermaid\n([\s\S]*?)```/g;
@@ -235,8 +235,24 @@
             // 6. 一次性更新DOM
             previewArea.innerHTML = finalHtml || '<p>预览生成失败</p>';
             console.log("预览区域已使用包含SVG的完整HTML更新。");
+            
+            // 7. 为@tag链接添加点击事件
+            const tagLinks = previewArea.querySelectorAll('.tag-link');
+            tagLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const tagName = this.getAttribute('data-tag');
+                    if (tagName) {
+                        // 发送跳转到tag声明的消息
+                        vscode.postMessage({
+                            command: 'goToTagDeclaration',
+                            tagName: tagName
+                        });
+                    }
+                });
+            });
 
-            // 7. 检查最终结果
+            // 8. 检查最终结果
             const allMermaidCharts = previewArea.querySelectorAll('.mermaid-chart');
             console.log(`最终在DOM中找到 ${allMermaidCharts.length} 个Mermaid图表容器`);
             allMermaidCharts.forEach((chart, index) => {

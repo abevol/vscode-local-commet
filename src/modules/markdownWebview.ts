@@ -334,6 +334,38 @@ export async function showMarkdownWebviewInput(
                             });
                         }
                         break;
+                    case 'goToTagDeclaration':
+                        // 处理跳转到tag声明的消息
+                        if (message.tagName) {
+                            try {
+                                // 使用TagManager查找tag声明
+                                const commentManager = new CommentManager(context);
+                                const tagManager = new TagManager();
+                                tagManager.updateTags(commentManager.getAllComments());
+                                
+                                const declaration = tagManager.getTagDeclaration(message.tagName);
+                                
+                                if (declaration) {
+                                    // 跳转到tag声明位置
+                                    const targetUri = vscode.Uri.file(declaration.filePath);
+                                    const targetPosition = new vscode.Position(declaration.line, 0);
+                                    
+                                    vscode.window.showTextDocument(targetUri, {
+                                        selection: new vscode.Range(targetPosition, targetPosition),
+                                        viewColumn: vscode.ViewColumn.One
+                                    }).then(() => {
+                                        // 跳转成功后显示提示
+                                        vscode.window.showInformationMessage(`已跳转到标签 @${message.tagName} 的声明位置`);
+                                    });
+                                } else {
+                                    vscode.window.showWarningMessage(`未找到标签 @${message.tagName} 的声明`);
+                                }
+                            } catch (error) {
+                                console.error('跳转到tag声明失败:', error);
+                                vscode.window.showErrorMessage(`跳转失败: ${error instanceof Error ? error.message : '未知错误'}`);
+                            }
+                        }
+                        break;
                     case 'cancel':
                         resolve(undefined);
                         panel.dispose();
