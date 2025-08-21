@@ -549,15 +549,18 @@ export class CommentManager {
         
         // 合并本地注释和共享注释
         const allComments = [...localComments, ...sharedComments];
-        
-        if (allComments.length === 0) {
-            return [];
-        }
 
         // 获取当前文档内容进行智能匹配
         const document = vscode.workspace.textDocuments.find(doc => doc.uri.fsPath === filePath);
         if (!document) {
             // 如果文档未打开，返回空数组（暂时隐藏注释）
+            return [];
+        }
+
+        // 检查第一行是否有注释，如果没有则创建默认的文件注释
+        const hasFirstLineComment = allComments.some(comment => comment.line === 0);
+
+        if (allComments.length === 0) {
             return [];
         }
 
@@ -571,6 +574,12 @@ export class CommentManager {
         let needsSave = false;
 
         for (const comment of allComments) {
+            // 对于默认文件注释（第一行），直接添加到匹配结果中
+            if (comment.line === 0) {
+                matchedComments.push(comment);
+                continue;
+            }
+
             const matchedLine = matchResults.get(comment.id) ?? -1;
             
             if (matchedLine !== -1) {
