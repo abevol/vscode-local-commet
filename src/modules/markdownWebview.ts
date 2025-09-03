@@ -387,15 +387,19 @@ export async function showMarkdownWebviewInput(
 
 // 辅助函数：恢复编辑器焦点
 function restoreFocus(editor: vscode.TextEditor | undefined) {
-    if (editor) {
-        vscode.window.showTextDocument(editor.document, {
-            viewColumn: editor.viewColumn,
-            selection: editor.selection,
+    // 获取当前活动的编辑器，而不是使用保存的编辑器
+    const currentActiveEditor = vscode.window.activeTextEditor;
+    if (currentActiveEditor) {
+        vscode.window.showTextDocument(currentActiveEditor.document, {
+            viewColumn: currentActiveEditor.viewColumn,
             preserveFocus: false
         }).then(() => {
             // 确保焦点真正回到编辑器
             vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
         });
+    } else {
+        // 如果没有当前活动编辑器，只是确保焦点回到编辑器组
+        vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
     }
 }
 

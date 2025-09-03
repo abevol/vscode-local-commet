@@ -196,6 +196,11 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
+## [1.2.1] - September 3, 2025
+
+- The issue of being unable to normally save and exit when entering Markdown editing from a mouse click
+- Some other optimizations
+
 ## [1.2.0] - 2025-08-23
 
 - ✨ Biggest highlight: Support for multi-user collaboration, allowing users to share local comments to the cloud and pull local comments from the cloud

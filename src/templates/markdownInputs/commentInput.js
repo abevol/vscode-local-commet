@@ -57,9 +57,6 @@
         if (previousState.currentTab) {
             currentTab = previousState.currentTab;
         }
-        if (previousState.cursorPosition !== undefined) {
-            textarea.setSelectionRange(previousState.cursorPosition, previousState.cursorPosition);
-        }
     }
     
     // 保存状态的函数
@@ -67,8 +64,7 @@
         vscode.setState({
             content: textarea.value,
             previewVisible: previewVisible,
-            currentTab: currentTab,
-            cursorPosition: textarea.selectionStart
+            currentTab: currentTab
         });
     }
     
@@ -855,10 +851,7 @@
         }
     });
     
-    // 监听光标位置变化
-    textarea.addEventListener('selectionchange', function() {
-        saveState();
-    });
+
     
     // 监听失去焦点时保存状态
     textarea.addEventListener('blur', function() {
@@ -881,11 +874,7 @@
     
     // 设置焦点
     textarea.focus();
-    if (previousState && previousState.cursorPosition !== undefined) {
-        textarea.setSelectionRange(previousState.cursorPosition, previousState.cursorPosition);
-    } else {
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-    }
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
     
     // 暴露函数给全局作用域
     window.saveAndContinue = function() {
