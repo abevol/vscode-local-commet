@@ -49,7 +49,7 @@
   "showUserInfo": "Show User Info",
   "treeViewTitle": "Local Comments",
   "sharedCommentsTreeViewTitle": "Shared Comments",
-  	"refreshSharedComments": "Refresh Shared Comments",
+  "refreshSharedComments": "Refresh Shared Comments",
 	"showShareComment": "查看注释内容",
 	"previewSharedComment": "Preview Comment Content",
 	"mermaidThemeDescription": "Select the theme for rendering Mermaid diagrams.",

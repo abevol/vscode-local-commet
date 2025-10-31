@@ -196,7 +196,12 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
-## [1.2.1] - September 3, 2025
+## [1.2.2] -2025-10-31
+
+- Fixed the issue where an error occurred when cleaning bookmarks for the current fileWhen there are no shared comments, unlogged-in users do not need pop-up prompts
+- Remove some useless code
+
+## [1.2.1] - 2025-09-03
 
 - The issue of being unable to normally save and exit when entering Markdown editing from a mouse click
 - Some other optimizations
