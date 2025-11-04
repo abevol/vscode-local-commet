@@ -1,13 +1,10 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import { TagManager } from '../managers/tagManager';
 import { CommentManager } from '../managers/commentManager';
 import { ApiService, ApiRoutes } from '../apiService';
 import { ProjectManager } from '../managers/projectManager';
 import { normalizeFilePath } from '../utils/utils';
-
-// 模板缓存，避免重复读取文件
-let templateCache: string | null = null;
+import { WebviewUtils } from '../utils/webviewUtils';
 
 // 辅助函数：获取代码上下文（前后5行）
 export async function getCodeContext(uri: vscode.Uri, lineNumber: number, contextLines: number = 5): Promise<{
@@ -101,24 +98,33 @@ export async function showMarkdownWebviewInput(
             }
         );
 
-        // 获取资源文件的本地路径
-        const markedJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'marked.min.js');
-        const markedJsUri = panel.webview.asWebviewUri(markedJsPath);
-        
-        const cssPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.css');
-        const cssUri = panel.webview.asWebviewUri(cssPath);
-        
-        const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.js');
-        const jsUri = panel.webview.asWebviewUri(jsPath);
-        
-        const mermaidJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'mermaid.min.js');
-        const mermaidJsUri = panel.webview.asWebviewUri(mermaidJsPath);
+        // 构建资源 URI
+        const resourceUris = WebviewUtils.buildResourceUris(panel.webview, context.extensionUri, {
+            markedJs: true,
+            css: 'markdownInputs/commentInput.css',
+            js: 'markdownInputs/commentInput.js',
+            mermaidJs: true
+        });
 
         // 优化：先显示面板，使用空的标签建议，后续异步加载
         const tagSuggestions = ''; // 先使用空字符串，后续异步更新
 
         // HTML内容
-        panel.webview.html = getMarkdownWebviewContent(context, prompt, placeholder, existingContent, contextInfo, markedJsUri.toString(), cssUri.toString(), jsUri.toString(), mermaidJsUri.toString(), tagSuggestions, isUserLoggedIn, isCommentShared, panel.webview);
+        panel.webview.html = getMarkdownWebviewContent(
+            context, 
+            prompt, 
+            placeholder, 
+            existingContent, 
+            contextInfo, 
+            resourceUris.markedJsUri || '', 
+            resourceUris.cssUri || '', 
+            resourceUris.jsUri || '', 
+            resourceUris.mermaidJsUri || '', 
+            tagSuggestions, 
+            isUserLoggedIn, 
+            isCommentShared, 
+            panel.webview
+        );
 
         // 异步加载标签建议和代码上下文，避免阻塞界面显示
         setTimeout(async () => {
@@ -428,18 +434,8 @@ function getMarkdownWebviewContent(
     isCommentShared: boolean = false,
     webview?: vscode.Webview // 添加webview参数
 ): string {
-    // HTML转义函数
-    const escapeHtml = (text: string): string => {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    };
-
     // 生成nonce用于CSP
-    const nonce = getNonce();
+    const nonce = WebviewUtils.getNonce();
 
     // 构建上下文信息HTML（总是显示，即使没有contextInfo）
     let contextHtml = '';
@@ -475,7 +471,7 @@ function getMarkdownWebviewContent(
             if (contextInfo.filePath) {
                 contextHtml += `<div class="context-item">
                     <span class="context-label">原路径:</span>
-                    <span class="context-value">${escapeHtml(contextInfo.filePath)}</span>
+                    <span class="context-value">${WebviewUtils.escapeHtml(contextInfo.filePath)}</span>
                 </div>`;
             }
         }
@@ -483,7 +479,7 @@ function getMarkdownWebviewContent(
         if (contextInfo.fileName) {
             contextHtml += `<div class="context-item">
                 <span class="context-label">文件:</span>
-                <span class="context-value">${escapeHtml(contextInfo.fileName)}</span>
+                <span class="context-value">${WebviewUtils.escapeHtml(contextInfo.fileName)}</span>
             </div>`;
         }
         
@@ -498,7 +494,7 @@ function getMarkdownWebviewContent(
             contextHtml += `<div class="context-item">
                 <span class="context-label">选中:</span>
                 <div class="context-value">
-                    <div class="code-preview">${escapeHtml(contextInfo.selectedText)}</div>
+                    <div class="code-preview">${WebviewUtils.escapeHtml(contextInfo.selectedText)}</div>
                 </div>
             </div>`;
         } else if (contextInfo.contextLines && contextInfo.contextLines.length > 0) {
@@ -516,7 +512,7 @@ function getMarkdownWebviewContent(
                 
                 contextHtml += `<div class="code-line ${lineClass}">
                     <span class="line-number">${lineNumberDisplay}</span>
-                    <span class="line-content">${escapeHtml(line)}</span>
+                    <span class="line-content">${WebviewUtils.escapeHtml(line)}</span>
                 </div>`;
             });
             
@@ -529,7 +525,7 @@ function getMarkdownWebviewContent(
                 contextHtml += `<div class="context-item">
                     <span class="context-label">当前代码:</span>
                     <div class="context-value">
-                        <div class="code-preview current-code">${escapeHtml(contextInfo.lineContent)}</div>
+                        <div class="code-preview current-code">${WebviewUtils.escapeHtml(contextInfo.lineContent)}</div>
                     </div>
                 </div>`;
             }
@@ -538,7 +534,7 @@ function getMarkdownWebviewContent(
             contextHtml += `<div class="context-item">
                 <span class="context-label">当前代码:</span>
                 <div class="context-value">
-                    <div class="code-preview current-code">${escapeHtml(contextInfo.lineContent)}</div>
+                    <div class="code-preview current-code">${WebviewUtils.escapeHtml(contextInfo.lineContent)}</div>
                 </div>
             </div>`;
         } else if (contextInfo.originalLineContent && !contextInfo.contextLines) {
@@ -547,7 +543,7 @@ function getMarkdownWebviewContent(
             contextHtml += `<div class="context-item">
                 <span class="context-label">${snapshotLabel}:</span>
                 <div class="context-value">
-                    <div class="code-preview original-code">${escapeHtml(contextInfo.originalLineContent)}</div>
+                    <div class="code-preview original-code">${WebviewUtils.escapeHtml(contextInfo.originalLineContent)}</div>
                 </div>
             </div>`;
         }
@@ -573,9 +569,9 @@ function getMarkdownWebviewContent(
     // 准备模板变量
     const templateVariables: Record<string, string> = {
         contextHtml,
-        escapedPrompt: escapeHtml(prompt),
-        escapedPlaceholder: escapeHtml(placeholder),
-        escapedContent: escapeHtml(existingContent || ''),
+        escapedPrompt: WebviewUtils.escapeHtml(prompt),
+        escapedPlaceholder: WebviewUtils.escapeHtml(placeholder),
+        escapedContent: WebviewUtils.escapeHtml(existingContent || ''),
         markedJsUri: markedJsUri || '',
         cssUri: cssUri || '',
         jsUri: jsUri || '',
@@ -591,27 +587,11 @@ function getMarkdownWebviewContent(
             </button>` : ''
     };
 
-    // 优化：使用缓存避免重复读取模板文件
-    if (!templateCache) {
-        const templatePath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'markdownInputs', 'commentInput.html');
-        templateCache = fs.readFileSync(templatePath.fsPath, 'utf8');
-    }
-    let template = templateCache;
+    // 加载模板（使用缓存）
+    const template = WebviewUtils.loadTemplate(context, 'markdownInputs/commentInput.html');
 
-    // 使用正则表达式一次性替换所有变量
-    template = template.replace(/\${(\w+)}/g, (match, key: string) => {
-        return templateVariables[key] || '';
-    });
+    // 替换模板变量
+    const html = WebviewUtils.replaceTemplateVariables(template, templateVariables);
 
-    return template;
-} 
-
-// 添加getNonce函数
-function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    return html;
 } 

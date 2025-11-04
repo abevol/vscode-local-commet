@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
 import { AuthManager, LoginCredentials } from '../managers/authManager';
-import * as fs from 'fs';
-import * as path from 'path';
+import { WebviewUtils } from '../utils/webviewUtils';
 
 export class AuthWebview {
     private static readonly viewType = 'localComment.auth';
@@ -122,19 +121,20 @@ export class AuthWebview {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        const templatePath = path.join(this._extensionUri.fsPath, 'src', 'templates', 'auth');
-        const htmlPath = path.join(templatePath, 'auth.html');
-        let htmlContent = fs.readFileSync(htmlPath, 'utf8');
+        // 构建资源 URI
+        const resourceUris = WebviewUtils.buildResourceUris(webview, this._extensionUri, {
+            css: 'auth/auth.css',
+            js: 'auth/auth.js'
+        });
 
-        const cssUri = webview.asWebviewUri(vscode.Uri.file(
-            path.join(templatePath, 'auth.css')
-        ));
-        const jsUri = webview.asWebviewUri(vscode.Uri.file(
-            path.join(templatePath, 'auth.js')
-        ));
+        // 加载模板
+        const template = WebviewUtils.loadTemplate(this._authManager.context, 'auth/auth.html');
 
-        htmlContent = htmlContent.replace('${cssUri}', cssUri.toString());
-        htmlContent = htmlContent.replace('${jsUri}', jsUri.toString());
+        // 替换模板变量
+        const htmlContent = WebviewUtils.replaceTemplateVariables(template, {
+            cssUri: resourceUris.cssUri || '',
+            jsUri: resourceUris.jsUri || ''
+        });
 
         return htmlContent;
     }

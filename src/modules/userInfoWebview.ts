@@ -5,6 +5,7 @@ import { CommentManager } from '../managers/commentManager';
 import { BookmarkManager } from '../managers/bookmarkManager';
 import { TagManager } from '../managers/tagManager';
 import { ProjectManager } from '../managers/projectManager';
+import { WebviewUtils } from '../utils/webviewUtils';
 
 export class UserInfoWebview {
     public static currentPanel: UserInfoWebview | undefined;
@@ -551,41 +552,26 @@ export class UserInfoWebview {
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-        // Local path to main script run in the webview
-        const scriptPathOnDisk = vscode.Uri.joinPath(this._extensionUri, 'src', 'templates', 'userInfo', 'userInfo.js');
+        // 构建资源 URI
+        const resourceUris = WebviewUtils.buildResourceUris(webview, this._extensionUri, {
+            css: 'userInfo/userInfo.css',
+            js: 'userInfo/userInfo.js'
+        });
 
-        // And the uri we use to load this script in the webview
-        const scriptUri = webview.asWebviewUri(scriptPathOnDisk);
+        // 生成 nonce
+        const nonce = WebviewUtils.getNonce();
 
-        // Local path to css file
-        const stylePathOnDisk = vscode.Uri.joinPath(this._extensionUri, 'src', 'templates', 'userInfo', 'userInfo.css');
+        // 加载模板
+        const template = WebviewUtils.loadTemplate(this._authManager.context, 'userInfo/userInfo.html');
 
-        // Uri to load styles into webview
-        const stylesUri = webview.asWebviewUri(stylePathOnDisk);
-
-        // Use a nonce to only allow specific scripts to be run
-        const nonce = getNonce();
-
-        // Read the HTML template
-        const htmlPath = vscode.Uri.joinPath(this._extensionUri, 'src', 'templates', 'userInfo', 'userInfo.html');
-        const fs = require('fs');
-        let html = fs.readFileSync(htmlPath.fsPath, 'utf8');
-
-        // Replace placeholders
-        html = html.replace(/\${cspSource}/g, webview.cspSource);
-        html = html.replace(/\${cssUri}/g, stylesUri.toString());
-        html = html.replace(/\${jsUri}/g, scriptUri.toString());
-        html = html.replace(/\${nonce}/g, nonce);
+        // 替换模板变量
+        const html = WebviewUtils.replaceTemplateVariables(template, {
+            cspSource: webview.cspSource,
+            cssUri: resourceUris.cssUri || '',
+            jsUri: resourceUris.jsUri || '',
+            nonce: nonce
+        });
 
         return html;
     }
-}
-
-function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
 } 

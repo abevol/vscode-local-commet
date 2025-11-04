@@ -1,9 +1,7 @@
 import * as vscode from 'vscode';
-import * as fs from 'fs';
 import { CommentManager } from '../managers/commentManager';
+import { WebviewUtils } from '../utils/webviewUtils';
 
-// 模板缓存，避免重复读取文件
-let templateCache: string | null = null;
 
 // 全局注释管理器引用
 let globalCommentManager: CommentManager | null = null;
@@ -64,28 +62,23 @@ export async function showShareCommentWebview(
         }
     );
 
-    // 获取资源文件的本地路径
-    const markedJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'marked.min.js');
-    const markedJsUri = panel.webview.asWebviewUri(markedJsPath);
-    
-    const cssPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'shareComment', 'shareComment.css');
-    const cssUri = panel.webview.asWebviewUri(cssPath);
-    
-    const jsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'shareComment', 'shareComment.js');
-    const jsUri = panel.webview.asWebviewUri(jsPath);
-    
-    const mermaidJsPath = vscode.Uri.joinPath(context.extensionUri, 'src', 'lib', 'mermaid.min.js');
-    const mermaidJsUri = panel.webview.asWebviewUri(mermaidJsPath);
+    // 构建资源 URI
+    const resourceUris = WebviewUtils.buildResourceUris(panel.webview, context.extensionUri, {
+        markedJs: true,
+        css: 'shareComment/shareComment.css',
+        js: 'shareComment/shareComment.js',
+        mermaidJs: true
+    });
 
     // HTML内容
     panel.webview.html = getShareCommentWebviewContent(
         context, 
         markdownContent, 
         contextInfo, 
-        markedJsUri.toString(), 
-        cssUri.toString(), 
-        jsUri.toString(), 
-        mermaidJsUri.toString(), 
+        resourceUris.markedJsUri || '', 
+        resourceUris.cssUri || '', 
+        resourceUris.jsUri || '', 
+        resourceUris.mermaidJsUri || '', 
         panel.webview
     );
 
@@ -274,18 +267,8 @@ function getShareCommentWebviewContent(
     mermaidJsUri: string = '',
     webview?: vscode.Webview
 ): string {
-    // HTML转义函数
-    const escapeHtml = (text: string): string => {
-        return text
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    };
-
     // 生成nonce用于CSP
-    const nonce = getNonce();
+    const nonce = WebviewUtils.getNonce();
 
     // 构建上下文信息HTML
     let contextHtml = '';
@@ -296,7 +279,7 @@ function getShareCommentWebviewContent(
         if (contextInfo.fileName) {
             contextHtml += `<div class="context-item">
                 <span class="context-label">文件:</span>
-                <span class="context-value">${escapeHtml(contextInfo.fileName)}</span>
+                <span class="context-value">${WebviewUtils.escapeHtml(contextInfo.fileName)}</span>
             </div>`;
         }
         
@@ -311,7 +294,7 @@ function getShareCommentWebviewContent(
             contextHtml += `<div class="context-item">
                 <span class="context-label">选中:</span>
                 <div class="context-value">
-                    <div class="code-preview">${escapeHtml(contextInfo.selectedText)}</div>
+                    <div class="code-preview">${WebviewUtils.escapeHtml(contextInfo.selectedText)}</div>
                 </div>
             </div>`;
         } else if (contextInfo.contextLines && contextInfo.contextLines.length > 0) {
@@ -328,7 +311,7 @@ function getShareCommentWebviewContent(
                 
                 contextHtml += `<div class="code-line ${lineClass}">
                     <span class="line-number">${lineNumberDisplay}</span>
-                    <span class="line-content">${escapeHtml(line)}</span>
+                    <span class="line-content">${WebviewUtils.escapeHtml(line)}</span>
                 </div>`;
             });
             
@@ -343,7 +326,7 @@ function getShareCommentWebviewContent(
     // 准备模板变量
     const templateVariables: Record<string, string> = {
         contextHtml,
-        escapedContent: escapeHtml(markdownContent || ''),
+        escapedContent: WebviewUtils.escapeHtml(markdownContent || ''),
         markedJsUri: markedJsUri || '',
         cssUri: cssUri || '',
         jsUri: jsUri || '',
@@ -351,27 +334,11 @@ function getShareCommentWebviewContent(
         cspSource: webview ? webview.cspSource : "'self'"
     };
 
-    // 优化：使用缓存避免重复读取模板文件
-    if (!templateCache) {
-        const templatePath = vscode.Uri.joinPath(context.extensionUri, 'src', 'templates', 'shareComment', 'shareComment.html');
-        templateCache = fs.readFileSync(templatePath.fsPath, 'utf8');
-    }
-    let template = templateCache;
+    // 加载模板（使用缓存）
+    const template = WebviewUtils.loadTemplate(context, 'shareComment/shareComment.html');
 
-    // 使用正则表达式一次性替换所有变量
-    template = template.replace(/\${(\w+)}/g, (match, key: string) => {
-        return templateVariables[key] || '';
-    });
+    // 替换模板变量
+    const html = WebviewUtils.replaceTemplateVariables(template, templateVariables);
 
-    return template;
-}
-
-// 添加getNonce函数
-function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+    return html;
 }
