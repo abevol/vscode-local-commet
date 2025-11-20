@@ -5,7 +5,9 @@ import * as path from 'path';
 // 读取构建时生成的日志级别配置
 let BUILD_LOG_LEVEL: string | undefined;
 try {
-    const configPath = path.join(__dirname, 'logConfig.json');
+    // 从 out 目录读取 logger.config.json（编译后的配置文件）
+    // 编译后代码在 out/utils/logger.js，需要向上一级到 out 目录
+    const configPath = path.join(__dirname, '../logger.config.json');
     if (fs.existsSync(configPath)) {
         const configContent = fs.readFileSync(configPath, 'utf8');
         const config = JSON.parse(configContent);
