@@ -36,7 +36,7 @@ Manage your shared comments in the web interface:
 
 Now, latex formulas can be added in local comments!
 
-! [image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/latex_support.png)
+![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/latex_support.png)
 
 ## Why Do We Need Local Comments?
 
