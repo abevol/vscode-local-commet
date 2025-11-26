@@ -225,7 +225,36 @@
                 return renderedSvgs[svgIndex++];
             });
 
-            // 5. 使用marked将整个内容（包括已插入的SVG）转换为HTML
+            // 5. 处理 LaTeX 公式（在 marked.parse 之前）
+            if (typeof katex !== 'undefined') {
+                try {
+                    // 先处理块级公式 $$...$$（避免被行内公式正则误匹配）
+                    finalContent = finalContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, formula) => {
+                        try {
+                            return katex.renderToString(formula.trim(), { displayMode: true, throwOnError: false });
+                        } catch (error) {
+                            console.error('KaTeX 块级公式渲染失败:', error);
+                            return `<span class="katex-error">公式渲染失败: ${formula}</span>`;
+                        }
+                    });
+
+                    // 再处理行内公式 $...$（使用负向前瞻/后顾避免匹配 $$）
+                    finalContent = finalContent.replace(/(?<!\$)\$(?!\$)([^\$\n]+?)\$(?!\$)/g, (match, formula) => {
+                        try {
+                            return katex.renderToString(formula.trim(), { displayMode: false, throwOnError: false });
+                        } catch (error) {
+                            console.error('KaTeX 行内公式渲染失败:', error);
+                            return `<span class="katex-error">公式渲染失败: ${formula}</span>`;
+                        }
+                    });
+                } catch (error) {
+                    console.error('LaTeX 公式处理失败:', error);
+                }
+            } else {
+                console.warn('KaTeX 未加载，无法渲染 LaTeX 公式');
+            }
+
+            // 6. 使用marked将整个内容（包括已插入的SVG和LaTeX公式）转换为HTML
             const finalHtml = marked.parse(finalContent);
             
             // 6. 一次性更新DOM

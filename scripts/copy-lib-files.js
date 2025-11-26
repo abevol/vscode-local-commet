@@ -1,6 +1,6 @@
 /**
  * 复制库文件脚本
- * 从 node_modules 复制 marked 和 mermaid 的浏览器版本到 out/lib 目录
+ * 从 node_modules 复制 marked、mermaid 和 katex 的浏览器版本到 out/lib 目录
  * 这些文件会在打包时被包含到 vsix 中
  */
 
@@ -46,6 +46,22 @@ const filesToCopy = [
             path.join(nodeModulesPath, '@mermaid-js', 'mermaid', 'dist', 'mermaid.min.js')
         ],
         target: path.join(outLibPath, 'mermaid.min.js')
+    },
+    {
+        packageName: 'katex',
+        possiblePaths: [
+            path.join(nodeModulesPath, 'katex', 'dist', 'katex.min.js'),
+            path.join(nodeModulesPath, 'katex', 'katex.min.js')
+        ],
+        target: path.join(outLibPath, 'katex.min.js')
+    },
+    {
+        packageName: 'katex-css',
+        possiblePaths: [
+            path.join(nodeModulesPath, 'katex', 'dist', 'katex.min.css'),
+            path.join(nodeModulesPath, 'katex', 'katex.min.css')
+        ],
+        target: path.join(outLibPath, 'katex.min.css')
     }
 ];
 

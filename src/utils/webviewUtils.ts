@@ -9,6 +9,8 @@ export interface ResourceUriOptions {
     css?: string;            // CSS 文件相对路径（相对于 templates 目录）
     js?: string;             // JS 文件相对路径（相对于 templates 目录）
     mermaidJs?: boolean;     // 是否需要 mermaid.js
+    katexJs?: boolean;       // 是否需要 katex.js
+    katexCss?: boolean;     // 是否需要 katex.css
     customResources?: Array<{ path: string; name: string }>; // 自定义资源
 }
 
@@ -20,6 +22,8 @@ export interface ResourceUris {
     cssUri?: string;
     jsUri?: string;
     mermaidJsUri?: string;
+    katexJsUri?: string;
+    katexCssUri?: string;
     [key: string]: string | undefined; // 支持自定义资源
 }
 
@@ -98,6 +102,26 @@ export class WebviewUtils {
             // 检查文件是否存在，优先使用 out/lib（打包后）
             const mermaidJsPath = fs.existsSync(outPath.fsPath) ? outPath : srcPath;
             uris.mermaidJsUri = webview.asWebviewUri(mermaidJsPath).toString();
+        }
+
+        // 构建 katex.js URI
+        if (options.katexJs) {
+            // 优先从 out/lib 加载（打包后的位置），如果不存在则从 src/lib 加载（开发环境）
+            const outPath = vscode.Uri.joinPath(extensionUri, 'out', 'lib', 'katex.min.js');
+            const srcPath = vscode.Uri.joinPath(extensionUri, 'src', 'lib', 'katex.min.js');
+            // 检查文件是否存在，优先使用 out/lib（打包后）
+            const katexJsPath = fs.existsSync(outPath.fsPath) ? outPath : srcPath;
+            uris.katexJsUri = webview.asWebviewUri(katexJsPath).toString();
+        }
+
+        // 构建 katex.css URI
+        if (options.katexCss) {
+            // 优先从 out/lib 加载（打包后的位置），如果不存在则从 src/lib 加载（开发环境）
+            const outPath = vscode.Uri.joinPath(extensionUri, 'out', 'lib', 'katex.min.css');
+            const srcPath = vscode.Uri.joinPath(extensionUri, 'src', 'lib', 'katex.min.css');
+            // 检查文件是否存在，优先使用 out/lib（打包后）
+            const katexCssPath = fs.existsSync(outPath.fsPath) ? outPath : srcPath;
+            uris.katexCssUri = webview.asWebviewUri(katexCssPath).toString();
         }
 
         // 构建自定义资源 URI

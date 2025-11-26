@@ -106,7 +106,9 @@ export async function showMarkdownWebviewInput(
             markedJs: true,
             css: 'markdownInputs/commentInput.css',
             js: 'markdownInputs/commentInput.js',
-            mermaidJs: true
+            mermaidJs: true,
+            katexJs: true,
+            katexCss: true
         });
 
         // 优化：先显示面板，使用空的标签建议，后续异步加载
@@ -123,6 +125,8 @@ export async function showMarkdownWebviewInput(
             resourceUris.cssUri || '', 
             resourceUris.jsUri || '', 
             resourceUris.mermaidJsUri || '', 
+            resourceUris.katexJsUri || '',
+            resourceUris.katexCssUri || '',
             tagSuggestions, 
             isUserLoggedIn, 
             isCommentShared, 
@@ -432,6 +436,8 @@ function getMarkdownWebviewContent(
     cssUri: string = '',
     jsUri: string = '',
     mermaidJsUri: string = '',
+    katexJsUri: string = '',
+    katexCssUri: string = '',
     tagSuggestions: string = '',
     isUserLoggedIn: boolean = false,
     isCommentShared: boolean = false,
@@ -579,6 +585,8 @@ function getMarkdownWebviewContent(
         cssUri: cssUri || '',
         jsUri: jsUri || '',
         mermaidJsUri: mermaidJsUri || '',
+        katexJsUri: katexJsUri || '',
+        katexCssUri: katexCssUri || '',
         tagSuggestions: tagSuggestions,
         cspSource: webview ? webview.cspSource : "'self'", // 从webview获取CSP源
         shareButtonHtml: (isUserLoggedIn && !isCommentShared) ? 

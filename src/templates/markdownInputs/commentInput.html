@@ -6,6 +6,7 @@
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src ${cspSource} 'unsafe-inline'; img-src ${cspSource} https: http: data: svg: blob:; connect-src 'none'; font-src 'none'; object-src 'none'; media-src 'none'; frame-src 'none';">
     <title>本地注释输入</title>
     <link rel="stylesheet" href="${cssUri}">
+    <link rel="stylesheet" href="${katexCssUri}">
 </head>
 <body>
     <div class="container">
@@ -14,6 +15,7 @@
             <div class="prompt">${escapedPrompt}</div>
             <div class="help-text">
                 支持Markdown语法，换行符请使用回车或者 \n 使用 $标签名 声明标签，使用 @标签名 引用标签<br>
+                支持 LaTeX 公式：行内公式使用 $公式$，块级公式使用 $$公式$$
             </div>
         </div>
         
@@ -39,6 +41,7 @@
 
     <script src="${markedJsUri}" onerror="console.error('marked.js 加载失败')"></script>
     <script src="${mermaidJsUri}" onerror="console.error('mermaid.js 加载失败')"></script>
+    <script src="${katexJsUri}" onerror="console.error('katex.js 加载失败')"></script>
     <script>
         // 将标签建议传递给主脚本
         window.tagSuggestions = '${tagSuggestions}';
