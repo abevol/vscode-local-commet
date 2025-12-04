@@ -61,6 +61,8 @@ export const COMMANDS = {
     TOGGLE_COMMENTS: 'localComment.toggleComments',
     GO_TO_COMMENT: 'localComment.goToComment',
     GO_TO_TAG_DECLARATION: 'localComment.goToTagDeclaration',
+    SHOW_CURRENT_FILE_TAGS: 'localComment.showCurrentFileTags',
+    SHOW_ALL_FILES_TAGS: 'localComment.showAllFilesTags',
     REFRESH_COMMENTS: 'localComment.refreshComments',
     REFRESH_TREE: 'localComment.refreshTree',
     DELETE_COMMENT_FROM_TREE: 'localComment.deleteCommentFromTree',

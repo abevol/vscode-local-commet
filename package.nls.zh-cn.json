@@ -22,7 +22,6 @@
   "exportToLocal": "保存到本地",
   "exportToCloud": "上传到云端",
   "cloudUploadTitle": "正在上传注释数据到云端...",
-  "cloudUploadSuccess": "云端上传成功！",
   "cloudUploadLoginRequired": "上传到云端需要先登录账户",
   "cloudUploadLoginNow": "立即登录",
   "cloudUploadCancel": "取消",
@@ -46,6 +45,8 @@
   "goToNextBookmark": "跳转到下一个书签",
   "goToPreviousBookmark": "跳转到上一个书签",
   "showCurrentFileBookmarks": "显示当前文件书签列表",
+  "showCurrentFileTags": "显示当前文件标签",
+  "showAllFilesTags": "显示所有文件标签",
 
   "logout": "用户登出",
   "showUserInfo": "显示用户信息",

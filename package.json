@@ -245,6 +245,16 @@
         "command": "localComment.previewSharedComment",
         "title": "%previewSharedComment%",
         "category": "Local Comment"
+      },
+      {
+        "command": "localComment.showCurrentFileTags",
+        "title": "%showCurrentFileTags%",
+        "category": "Local Comment"
+      },
+      {
+        "command": "localComment.showAllFilesTags",
+        "title": "%showAllFilesTags%",
+        "category": "Local Comment"
       }
     ],
     "views": {

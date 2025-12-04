@@ -13,6 +13,7 @@ import { ProjectManager } from '../../managers/projectManager';
 import { buildExportData } from '../../utils/utils';
 import { registerCommentCommands } from './comment';
 import { registerBookmarkCommands } from './bookmark';
+import { registerTagCommands } from './tagCommands';
 import { logger } from '../../utils/logger';
 import { AuthWebview } from '../authWebview';
 import { UserInfoWebview } from '../userInfoWebview';
@@ -987,6 +988,9 @@ export function registerCommands(
     // 注册bookmark.ts中的命令
     const bookmarkCommands = registerBookmarkCommands(bookmarkManager);
 
+    // 注册tagCommands.ts中的命令
+    const tagCommands = registerTagCommands(tagManager, commentManager);
+
     // 返回所有注册的命令，以便在extension.ts中添加到subscriptions
     return [
         showStorageLocationCommand,
@@ -1001,5 +1005,6 @@ export function registerCommands(
         showShareCommentCommand,
         ...commentCommands,
         ...bookmarkCommands,
+        ...tagCommands,
     ];
 } 
