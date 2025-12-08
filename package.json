@@ -330,6 +330,11 @@
           "command": "localComment.toggleBookmark",
           "group": "localComment",
           "when": "editorTextFocus"
+        },
+        {
+          "command": "localComment.showCurrentFileTags",
+          "group": "localComment",
+          "when": "editorTextFocus"
         }
       ],
       "view/title": [
