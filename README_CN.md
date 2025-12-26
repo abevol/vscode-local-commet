@@ -12,6 +12,10 @@
 
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/markdown.gif)
 
+## 本地注释和书签列表
+
+![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/view_panel.png)
+
 ## Mermaid流程图支持！！！【v1.1.3 特性】
 
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/render_mermaid.png)
@@ -223,6 +227,13 @@ another-project-g7h8i9j0k1l2.json
 ## 📝 更新日志
 
 ### 变更日志
+
+## [1.3.1] - 2025-12-26
+
+- 🔨 重新设置了用户跳转tag的定义方式，为了不和latex公式中的 `$latex$`定义方式冲突，现在由之前的`$tag`改为`${tag}`格式。之前使用了tag标签的用户这里需要手动修改一下标签格式了。
+- ✨ 现在起支持中文标签的方式：`${中文标签}`
+- ✨ 右键功能菜单加入当前页面的标签列表，点击后可以跳转到指定位置
+- 🔨 其他的一些问题的修复
 
 ## [1.3.0] - 2025-11-26
 

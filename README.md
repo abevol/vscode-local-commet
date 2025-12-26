@@ -14,6 +14,10 @@ A VSCode extension designed for large project development, providing local comme
 
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/markdown.gif)
 
+## Local Comments and Bookmarks List
+
+![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/view_panel.png)
+
 ## Mermaid Flowchart Support!!! [v1.1.3 Feature]
 
 ![image](https://raw.githubusercontent.com/SangLiang/vscode-local-commet/refs/heads/master/images/render_mermaid.png)
@@ -221,20 +225,28 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
-## [1.3.0] -2025-11-26
+## [1.3.1] - 2025-12-26
 
-- ✨ adds support for latex formulas!!
-- ✨ allows log information to be output in the output of the editor
-- 🔨 optimized the code, slightly improving performance in rendering
+- 🔨 Redefined the way users jump to tags. To avoid conflicts with `$latex$` definition in latex formulas, the format has been changed from `$tag` to `${tag}`. Users who previously used tag labels need to manually modify the tag format.
+- ✨ Now supports Chinese tags: `${中文标签}`
+- ✨ Added tag list in right-click context menu for current page, click to jump to specified position
+- 🔨 Fixed some other issues
 
-## [1.2.2] -2025-10-31
+## [1.3.0] - 2025-11-26
 
-- Fixed the issue where an error occurred when cleaning bookmarks for the current fileWhen there are no shared comments, unlogged-in users do not need pop-up prompts
-- Remove some useless code
+- ✨ Added support for latex formulas!!
+- ✨ Allows log information to be output in the output of the editor
+- 🔨 Optimized the code, slightly improving performance in rendering
+
+## [1.2.2] - 2025-10-28
+
+- Fixed the issue where an error occurred when cleaning bookmarks for the current file
+- When there are no shared comments, unlogged-in users do not need pop-up prompts
+- Removed some useless code
 
 ## [1.2.1] - 2025-09-03
 
-- The issue of being unable to normally save and exit when entering Markdown editing from a mouse click
+- Fixed the issue of being unable to normally save and exit when entering markdown editing from a mouse click
 - Some other optimizations
 
 ## [1.2.0] - 2025-08-23
