@@ -7,6 +7,7 @@ import { normalizeFilePath } from '../utils/utils';
 import { WebviewUtils } from '../utils/webviewUtils';
 import { logger } from '../utils/logger';
 import { IPC_MESSAGES, COMMANDS, DELAY_TIMES } from '../constants';
+import { UpdatedContextInfo } from './command/comment';
 
 // 辅助函数：获取代码上下文（前后5行）
 export async function getCodeContext(uri: vscode.Uri, lineNumber: number, contextLines: number = 5): Promise<{
@@ -62,7 +63,7 @@ export async function showMarkdownWebviewInput(
         filePath?: string; // 文件路径
     },
     markedJsUri: string = '',
-    onSaveAndContinue?: (content: string, updatedContextInfo?: any,callback?: () => void) => void,
+    onSaveAndContinue?: (content: string, updatedContextInfo?: UpdatedContextInfo, callback?: () => void) => void,
     isUserLoggedIn: boolean = false,
     isCommentShared: boolean = false
 ): Promise<{content: string, contextInfo?: any} | undefined> {

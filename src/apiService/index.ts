@@ -41,7 +41,7 @@ export interface RequestConfig extends AxiosRequestConfig {
 export class ApiService {
     private static instance: ApiService;
     private axiosInstance: AxiosInstance;
-    private authManager: any; // 这里应该注入AuthManager实例
+    private authManager?: import('../managers/authManager').AuthManager; // 使用具体的 AuthManager 类型
 
     private constructor() {
         const config = vscode.workspace.getConfiguration('local-comment');
@@ -135,7 +135,7 @@ export class ApiService {
     /**
      * 设置AuthManager实例
      */
-    public setAuthManager(authManager: any): void {
+    public setAuthManager(authManager: import('../managers/authManager').AuthManager): void {
         this.authManager = authManager;
     }
 

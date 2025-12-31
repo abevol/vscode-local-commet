@@ -11,6 +11,14 @@ import { getFileNameFromPath, getFileNameFromUri } from '../../utils/pathUtils';
 import { logger } from '../../utils/logger';
 import { COMMANDS } from '../../constants';
 
+/**
+ * 更新上下文信息接口
+ */
+export interface UpdatedContextInfo {
+    lineNumber?: number;
+    lineContent?: string;
+}
+
 export function registerCommentCommands(
     commentManager: CommentManager,
     tagManager: TagManager,
@@ -37,7 +45,7 @@ export function registerCommentCommands(
         originalContent: string
     ) {
         // 辅助函数：处理编辑注释的逻辑
-        async function handleEditComment(savedContent: string, updatedContextInfo?: any) {
+        async function handleEditComment(savedContent: string, updatedContextInfo?: UpdatedContextInfo) {
             // 如果行号有变化，需要先更新注释的行号
             if (updatedContextInfo?.lineNumber !== undefined && updatedContextInfo.lineNumber !== line) {
                 await commentManager.updateCommentLine(uri, commentId, updatedContextInfo.lineNumber, updatedContextInfo.lineContent || '');
@@ -45,7 +53,7 @@ export function registerCommentCommands(
             return commentManager.editComment(uri, commentId, savedContent);
         }
 
-        return async (savedContent: string, updatedContextInfo?: any,callback?: () => void) => {
+        return async (savedContent: string, updatedContextInfo?: UpdatedContextInfo, callback?: () => void) => {
             try {
                 // 对于添加操作，检查内容是否为空
                 if (operation === 'add' && (!savedContent || savedContent.trim() === '')) {

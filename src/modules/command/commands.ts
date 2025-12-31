@@ -10,10 +10,11 @@ import { getFileNameFromPath } from '../../utils/pathUtils';
 
 import { ApiRoutes } from '../../apiService';
 import { ProjectManager } from '../../managers/projectManager';
-import { buildExportData } from '../../utils/utils';
+import { buildExportData, ProjectInfo } from '../../utils/utils';
 import { registerCommentCommands } from './comment';
 import { registerBookmarkCommands } from './bookmark';
 import { registerTagCommands } from './tagCommands';
+import { AuthManager } from '../../managers/authManager';
 import { logger } from '../../utils/logger';
 import { AuthWebview } from '../authWebview';
 import { UserInfoWebview } from '../userInfoWebview';
@@ -27,7 +28,7 @@ export function registerCommands(
     commentProvider: CommentProvider,
     commentTreeProvider: CommentTreeProvider,
     bookmarkManager?: BookmarkManager,
-    authManager?: any
+    authManager?: AuthManager
 ) {
 
     const showStorageLocationCommand = vscode.commands.registerCommand(COMMANDS.SHOW_STORAGE_LOCATION, () => {
@@ -283,7 +284,7 @@ export function registerCommands(
     });
 
     // 处理本地导出
-    async function handleLocalExport(projectInfo: any, allComments: any, totalComments: number) {
+    async function handleLocalExport(projectInfo: ProjectInfo, allComments: import('../../managers/commentManager').FileComments, totalComments: number) {
         // 生成默认文件名
         const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
         const defaultFileName = `${projectInfo.name}-comments-${timestamp}.json`;
@@ -326,9 +327,15 @@ export function registerCommands(
     }
 
     // 处理云端上传
-    async function handleCloudUpload(projectInfo: any, allComments: any, totalComments: number, authManager?: any) {
+    async function handleCloudUpload(projectInfo: ProjectInfo, allComments: import('../../managers/commentManager').FileComments, totalComments: number, authManager?: AuthManager) {
+        // 检查 authManager 是否存在
+        if (!authManager) {
+            vscode.window.showErrorMessage('认证管理器未初始化');
+            return;
+        }
+        
         // 检查用户是否已登录
-                if (!authManager || !authManager.isLoggedIn()) {
+        if (!authManager.isLoggedIn()) {
             const loginChoice = await vscode.window.showWarningMessage(
                 '上传到云端需要先登录账户',
                 '立即登录', '取消'
@@ -656,10 +663,16 @@ export function registerCommands(
     }
 
     // 处理服务端导入
-    async function handleCloudImport(authManager?: any) {
+    async function handleCloudImport(authManager?: AuthManager) {
         try {
+            // 检查 authManager 是否存在
+            if (!authManager) {
+                vscode.window.showErrorMessage('认证管理器未初始化');
+                return;
+            }
+            
             // 检查用户是否已登录
-            if (!authManager || !authManager.isLoggedIn()) {
+            if (!authManager.isLoggedIn()) {
                 const loginChoice = await vscode.window.showWarningMessage(
                     '从服务端导入需要先登录账户',
                     '立即登录', '取消'

@@ -28,7 +28,7 @@ export interface SharedComment extends LocalComment {
 
 // 项目共享注释的接口 
 export interface ProjectSharedComment {
-    content: any; // 注释内容
+    content: LocalComment; // 注释内容 - 使用 LocalComment 类型
     file_path: string; // 文件路径
     project_id: number; // 项目ID
     is_public: boolean; // 是否公开

@@ -24,6 +24,9 @@ export class SharedCommentTreeProvider implements vscode.TreeDataProvider<Shared
         });
         
         this.disposables.push(commentUpdateDisposable, sharedCommentUpdateDisposable);
+        
+        // 初始化上下文变量
+        this.updateContext();
     }
 
     refresh(): void {

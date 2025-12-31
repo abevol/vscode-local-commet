@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './logger';
+import { FileComments } from '../managers/commentManager';
 
 /**
  * 读取图标文件并将其转换为Base64数据URI。
@@ -73,6 +74,15 @@ export function normalizeFileComments(fileComments: { [filePath: string]: any[] 
 }
 
 /**
+ * 项目信息接口
+ */
+export interface ProjectInfo {
+    name: string;
+    path: string;
+    storageFile?: string;
+}
+
+/**
  * 构建标准化的注释导出数据
  * 统一本地导出和云端上传的数据格式
  * @param projectInfo 项目信息
@@ -80,7 +90,7 @@ export function normalizeFileComments(fileComments: { [filePath: string]: any[] 
  * @param totalComments 注释总数
  * @returns 标准化的导出数据
  */
-export function buildExportData(projectInfo: any, allComments: any, totalComments: number) {
+export function buildExportData(projectInfo: ProjectInfo, allComments: FileComments, totalComments: number) {
     // 标准化注释数据中的文件路径
     const normalizedComments = normalizeFileComments(allComments);
     
