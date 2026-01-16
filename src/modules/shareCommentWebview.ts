@@ -72,7 +72,9 @@ export async function showShareCommentWebview(
         js: 'shareComment/shareComment.js',
         mermaidJs: true,
         katexJs: true,
-        katexCss: true
+        katexCss: true,
+        highlightJs: true,
+        highlightCss: true
     });
 
     // HTML内容
@@ -86,6 +88,8 @@ export async function showShareCommentWebview(
         resourceUris.mermaidJsUri || '', 
         resourceUris.katexJsUri || '',
         resourceUris.katexCssUri || '',
+        resourceUris.highlightJsUri || '',
+        resourceUris.highlightCssUri || '',
         panel.webview
     );
 
@@ -274,6 +278,8 @@ function getShareCommentWebviewContent(
     mermaidJsUri: string = '',
     katexJsUri: string = '',
     katexCssUri: string = '',
+    highlightJsUri: string = '',
+    highlightCssUri: string = '',
     webview?: vscode.Webview
 ): string {
     // 生成nonce用于CSP
@@ -342,6 +348,8 @@ function getShareCommentWebviewContent(
         mermaidJsUri: mermaidJsUri || '',
         katexJsUri: katexJsUri || '',
         katexCssUri: katexCssUri || '',
+        highlightJsUri: highlightJsUri || '',
+        highlightCssUri: highlightCssUri || '',
         cspSource: webview ? webview.cspSource : "'self'"
     };
 

@@ -30,8 +30,36 @@
         };
     }
 
+    // 等待 highlight.js 加载完成（可选，不阻塞）
+    function waitForHighlight() {
+        return new Promise((resolve) => {
+            if (typeof hljs !== 'undefined') {
+                resolve();
+                return;
+            }
+            let attempts = 0;
+            const maxAttempts = 50; // 最多等待5秒
+            
+            const checkHighlight = () => {
+                if (typeof hljs !== 'undefined') {
+                    resolve();
+                    return;
+                }
+                attempts++;
+                if (attempts >= maxAttempts) {
+                    // highlight.js 未加载，但不阻塞，继续执行
+                    console.warn('highlight.js 加载超时，代码高亮可能不可用');
+                    resolve();
+                } else {
+                    setTimeout(checkHighlight, 100);
+                }
+            };
+            checkHighlight();
+        });
+    }
+
     // 全局、一次性的初始化任务
-    const initializationPromise = Promise.all([waitForMarked(), waitForMermaid()])
+    const initializationPromise = Promise.all([waitForMarked(), waitForMermaid(), waitForHighlight()])
         .catch(error => {
             console.error("关键库初始化失败:", error);
             // 可以在预览区域显示一个永久性的错误
@@ -73,10 +101,37 @@
     // 初始化marked
     function initializeMarked() {
         if (typeof marked !== 'undefined' && !markedInitialized) {
+            // 配置代码高亮渲染器
+            const renderer = new marked.Renderer();
+            const originalCode = renderer.code;
+            
+            renderer.code = function(code, language) {
+                // 如果没有指定语言，使用原始渲染
+                if (!language) {
+                    return originalCode.call(this, code, language);
+                }
+                
+                // 如果 highlight.js 已加载，使用它进行高亮
+                if (typeof hljs !== 'undefined') {
+                    try {
+                        const highlighted = hljs.highlight(code, { language: language }).value;
+                        return `<pre><code class="hljs language-${language}">${highlighted}</code></pre>`;
+                    } catch (error) {
+                        // 如果高亮失败，使用原始渲染
+                        console.warn('代码高亮失败:', error);
+                        return originalCode.call(this, code, language);
+                    }
+                } else {
+                    // highlight.js 未加载，使用原始渲染
+                    return originalCode.call(this, code, language);
+                }
+            };
+            
             marked.setOptions({
                 breaks: true,
                 gfm: true,
-                sanitize: false
+                sanitize: false,
+                renderer: renderer
             });
             markedInitialized = true;
             return true;

@@ -62,6 +62,28 @@ const filesToCopy = [
             path.join(nodeModulesPath, 'katex', 'katex.min.css')
         ],
         target: path.join(outLibPath, 'katex.min.css')
+    },
+    {
+        packageName: 'highlight.js',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'highlight.min.js'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'highlight.min.js'),
+            path.join(nodeModulesPath, 'highlight.js', 'lib', 'highlight.min.js'),
+            path.join(nodeModulesPath, 'highlight.js', 'highlight.min.js')
+        ],
+        target: path.join(outLibPath, 'highlight.min.js')
+    },
+    {
+        packageName: 'highlight.js-css',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs2015.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs2015.css')
+        ],
+        target: path.join(outLibPath, 'highlight.min.css')
     }
 ];
 
