@@ -65,6 +65,10 @@ export async function showShareCommentWebview(
         }
     );
 
+    // 读取代码高亮主题配置
+    const config = vscode.workspace.getConfiguration('local-comment');
+    const highlightTheme = config.get<string>('codeHighlight.theme', 'github-dark');
+    
     // 构建资源 URI
     const resourceUris = WebviewUtils.buildResourceUris(panel.webview, context.extensionUri, {
         markedJs: true,
@@ -74,7 +78,8 @@ export async function showShareCommentWebview(
         katexJs: true,
         katexCss: true,
         highlightJs: true,
-        highlightCss: true
+        highlightCss: true,
+        highlightTheme: highlightTheme
     });
 
     // HTML内容

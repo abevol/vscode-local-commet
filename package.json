@@ -482,6 +482,29 @@
             "%mermaidThemeDefault%",
             "%mermaidThemeHandDrawn%"
           ]
+        },
+        "local-comment.codeHighlight.theme": {
+          "type": "string",
+          "default": "github-dark",
+          "description": "代码高亮主题。可选主题：github-dark（GitHub 暗色）、github（GitHub 亮色）、vs2015（Visual Studio 2015）、monokai（Monokai）、vs（Visual Studio）等",
+          "enum": [
+            "github-dark",
+            "github",
+            "vs2015",
+            "vs",
+            "monokai",
+            "atom-one-dark",
+            "atom-one-light"
+          ],
+          "enumDescriptions": [
+            "GitHub 暗色主题（推荐用于暗色 VS Code 主题）",
+            "GitHub 亮色主题（推荐用于亮色 VS Code 主题）",
+            "Visual Studio 2015 主题",
+            "Visual Studio 主题",
+            "Monokai 主题",
+            "Atom One Dark 主题",
+            "Atom One Light 主题"
+          ]
         }
       }
     }

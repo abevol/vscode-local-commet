@@ -13,6 +13,7 @@ export interface ResourceUriOptions {
     katexCss?: boolean;     // 是否需要 katex.css
     highlightJs?: boolean;   // 是否需要 highlight.js
     highlightCss?: boolean;  // 是否需要 highlight.js CSS
+    highlightTheme?: string;  // highlight.js 主题名称（如 'github-dark', 'vs2015' 等）
     customResources?: Array<{ path: string; name: string }>; // 自定义资源
 }
 
@@ -140,11 +141,28 @@ export class WebviewUtils {
 
         // 构建 highlight.css URI
         if (options.highlightCss) {
+            // 根据主题名称构建 CSS 文件名
+            const themeName = options.highlightTheme || 'github-dark';
+            const cssFileName = `${themeName}.min.css`;
+            
             // 优先从 out/lib 加载（打包后的位置），如果不存在则从 src/lib 加载（开发环境）
-            const outPath = vscode.Uri.joinPath(extensionUri, 'out', 'lib', 'highlight.min.css');
-            const srcPath = vscode.Uri.joinPath(extensionUri, 'src', 'lib', 'highlight.min.css');
+            const outPath = vscode.Uri.joinPath(extensionUri, 'out', 'lib', cssFileName);
+            const srcPath = vscode.Uri.joinPath(extensionUri, 'src', 'lib', cssFileName);
+            
             // 检查文件是否存在，优先使用 out/lib（打包后）
-            const highlightCssPath = fs.existsSync(outPath.fsPath) ? outPath : srcPath;
+            // 如果指定的主题文件不存在，回退到默认的 highlight.min.css
+            let highlightCssPath: vscode.Uri;
+            if (fs.existsSync(outPath.fsPath)) {
+                highlightCssPath = outPath;
+            } else if (fs.existsSync(srcPath.fsPath)) {
+                highlightCssPath = srcPath;
+            } else {
+                // 回退到默认文件
+                const defaultOutPath = vscode.Uri.joinPath(extensionUri, 'out', 'lib', 'highlight.min.css');
+                const defaultSrcPath = vscode.Uri.joinPath(extensionUri, 'src', 'lib', 'highlight.min.css');
+                highlightCssPath = fs.existsSync(defaultOutPath.fsPath) ? defaultOutPath : defaultSrcPath;
+            }
+            
             uris.highlightCssUri = webview.asWebviewUri(highlightCssPath).toString();
         }
 

@@ -73,15 +73,85 @@ const filesToCopy = [
         ],
         target: path.join(outLibPath, 'highlight.min.js')
     },
+    // 复制多个 highlight.js 主题文件
     {
-        packageName: 'highlight.js-css',
+        packageName: 'highlight.js-css-github-dark',
         possiblePaths: [
             path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'github-dark.min.css'),
             path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'github-dark.min.css'),
             path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.min.css'),
-            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.css')
+        ],
+        target: path.join(outLibPath, 'github-dark.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-github',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'github.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'github.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github.css')
+        ],
+        target: path.join(outLibPath, 'github.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-vs2015',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'vs2015.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'vs2015.min.css'),
             path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs2015.min.css'),
             path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs2015.css')
+        ],
+        target: path.join(outLibPath, 'vs2015.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-vs',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'vs.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'vs.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'vs.css')
+        ],
+        target: path.join(outLibPath, 'vs.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-monokai',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'monokai.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'monokai.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'monokai.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'monokai.css')
+        ],
+        target: path.join(outLibPath, 'monokai.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-atom-one-dark',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'atom-one-dark.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'atom-one-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'atom-one-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'atom-one-dark.css')
+        ],
+        target: path.join(outLibPath, 'atom-one-dark.min.css')
+    },
+    {
+        packageName: 'highlight.js-css-atom-one-light',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'atom-one-light.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'atom-one-light.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'atom-one-light.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'atom-one-light.css')
+        ],
+        target: path.join(outLibPath, 'atom-one-light.min.css')
+    },
+    // 保留默认的 highlight.min.css 作为回退（使用 github-dark）
+    {
+        packageName: 'highlight.js-css-default',
+        possiblePaths: [
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, '@highlightjs', 'cdn-assets', 'build', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.min.css'),
+            path.join(nodeModulesPath, 'highlight.js', 'styles', 'github-dark.css')
         ],
         target: path.join(outLibPath, 'highlight.min.css')
     }
