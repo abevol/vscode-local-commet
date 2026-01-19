@@ -8,6 +8,7 @@ import { ProjectManager } from '../managers/projectManager';
 import { WebviewUtils } from '../utils/webviewUtils';
 import { logger } from '../utils/logger';
 import { DELAY_TIMES, VIEW_TYPES, COMMANDS, IPC_MESSAGES } from '../constants';
+import { TimerManager } from '../utils/timerUtils';
 
 export class UserInfoWebview {
     public static currentPanel: UserInfoWebview | undefined;
@@ -17,6 +18,7 @@ export class UserInfoWebview {
     private readonly _panel: vscode.WebviewPanel;
     private readonly _extensionUri: vscode.Uri;
     private _disposables: vscode.Disposable[] = [];
+    private _timerManager: TimerManager = new TimerManager(); // 定时器管理器
     private _authManager: AuthManager;
     private _commentManager?: CommentManager;
     private _bookmarkManager?: BookmarkManager;
@@ -154,6 +156,7 @@ export class UserInfoWebview {
         UserInfoWebview.currentPanel = undefined;
 
         // 清理资源
+        this._timerManager.dispose(); // 清理所有定时器
         this._panel.dispose();
 
         while (this._disposables.length) {
@@ -354,7 +357,7 @@ export class UserInfoWebview {
             });
 
             // 延迟重新获取项目列表，让前端先完成状态更新动画
-            setTimeout(() => {
+            this._timerManager.setTimeout(() => {
                 this.handleGetProjects();
             }, DELAY_TIMES.PROJECT_REFRESH_AFTER_ANIMATION);
         } catch (error) {
@@ -383,7 +386,7 @@ export class UserInfoWebview {
             });
 
             // 延迟重新获取项目列表，让前端先完成状态更新动画
-            setTimeout(() => {
+            this._timerManager.setTimeout(() => {
                 this.handleGetProjects();
             }, DELAY_TIMES.PROJECT_REFRESH_AFTER_ANIMATION);
         } catch (error) {
@@ -519,7 +522,7 @@ export class UserInfoWebview {
             });
 
             // 模拟上传延迟
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            await new Promise<void>(resolve => this._timerManager.setTimeout(() => resolve(), 1000));
 
             // 发送上传成功消息
             this._panel.webview.postMessage({

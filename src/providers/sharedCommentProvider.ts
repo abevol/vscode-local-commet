@@ -3,12 +3,14 @@ import { CommentManager, SharedComment } from '../managers/commentManager';
 import { createDataUri } from '../utils/utils';
 import { logger } from '../utils/logger';
 import { COMMANDS } from '../constants';
+import { TimerManager } from '../utils/timerUtils';
 
 export class SharedCommentProvider implements vscode.Disposable, vscode.HoverProvider {
     private decorationType: vscode.TextEditorDecorationType;
     private commentManager: CommentManager;
     private isVisible: boolean = true;
     private disposables: vscode.Disposable[] = [];
+    private timerManager: TimerManager = new TimerManager(); // 定时器管理器
     private updateTimer: NodeJS.Timeout | null = null; // 防抖定时器
 
     // 预加载的图标URIs
@@ -189,6 +191,7 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
     }
 
     public dispose(): void {
+        this.timerManager.dispose(); // 清理所有定时器
         this.decorationType.dispose();
         this.disposables.forEach(d => d.dispose());
     }
@@ -196,10 +199,10 @@ export class SharedCommentProvider implements vscode.Disposable, vscode.HoverPro
     // 防抖更新方法，避免频繁更新装饰
     private debouncedUpdateDecorations(): void {
         if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
+            this.timerManager.clearTimeout(this.updateTimer);
         }
 
-        this.updateTimer = setTimeout(() => {
+        this.updateTimer = this.timerManager.setTimeout(() => {
             this.updateDecorations();
             this.updateTimer = null;
         }, 100); // 100ms防抖延迟

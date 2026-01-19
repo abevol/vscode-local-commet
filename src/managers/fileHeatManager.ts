@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import { logger } from '../utils/logger';
+import { TimerManager } from '../utils/timerUtils';
 
 export interface FileHeatInfo {
     filePath: string;
@@ -17,6 +18,7 @@ export class FileHeatManager implements vscode.Disposable {
     private context: vscode.ExtensionContext;
     private activeFileStartTime: number = 0;
     private currentActiveFile: string | undefined;
+    private timerManager: TimerManager = new TimerManager(); // 定时器管理器
     private saveTimer: NodeJS.Timeout | null = null;
     private disposables: vscode.Disposable[] = [];
     
@@ -160,10 +162,10 @@ export class FileHeatManager implements vscode.Disposable {
     private scheduleHeatDataSave(): void {
         // 使用防抖机制，避免频繁保存
         if (this.saveTimer) {
-            clearTimeout(this.saveTimer);
+            this.timerManager.clearTimeout(this.saveTimer);
         }
 
-        this.saveTimer = setTimeout(() => {
+        this.saveTimer = this.timerManager.setTimeout(() => {
             this.saveHeatData();
             this.saveTimer = null;
         }, 2000); // 2秒后保存
@@ -278,9 +280,12 @@ export class FileHeatManager implements vscode.Disposable {
         
         // 立即保存数据
         if (this.saveTimer) {
-            clearTimeout(this.saveTimer);
+            this.timerManager.clearTimeout(this.saveTimer);
         }
         this.saveHeatData();
+        
+        // 清理所有定时器
+        this.timerManager.dispose();
         
         // 清理事件监听器
         this.disposables.forEach(d => d.dispose());

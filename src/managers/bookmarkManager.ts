@@ -3,6 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
 import { logger } from '../utils/logger';
+import { TimerManager } from '../utils/timerUtils';
 
 export interface Bookmark {
     id: string;
@@ -28,6 +29,8 @@ export class BookmarkManager {
     private _sortedBookmarksCache: Bookmark[] | null = null;
     private _cacheInvalidated = true;
     
+    // 定时器管理器
+    private _timerManager: TimerManager = new TimerManager();
     // 防抖保存
     private _saveTimeout: NodeJS.Timeout | null = null;
 
@@ -443,10 +446,10 @@ export class BookmarkManager {
      */
     private _debouncedSave(): void {
         if (this._saveTimeout) {
-            clearTimeout(this._saveTimeout);
+            this._timerManager.clearTimeout(this._saveTimeout);
         }
         
-        this._saveTimeout = setTimeout(() => {
+        this._saveTimeout = this._timerManager.setTimeout(() => {
             this.saveBookmarks();
             this._onDidChangeBookmarks.fire();
             this._saveTimeout = null;
@@ -540,9 +543,10 @@ export class BookmarkManager {
      */
     public dispose(): void {
         if (this._saveTimeout) {
-            clearTimeout(this._saveTimeout);
+            this._timerManager.clearTimeout(this._saveTimeout);
             this._saveTimeout = null;
         }
+        this._timerManager.dispose(); // 清理所有定时器
         this._onDidChangeBookmarks.dispose();
     }
 } 

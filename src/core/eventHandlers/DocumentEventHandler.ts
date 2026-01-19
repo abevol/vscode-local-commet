@@ -2,11 +2,14 @@ import * as vscode from 'vscode';
 import { ExtensionContainer } from '../ExtensionContainer';
 import { EditorEventHandler } from './EditorEventHandler';
 import { logger } from '../../utils/logger';
+import { TimerManager } from '../../utils/timerUtils';
 
 /**
  * 文档事件处理器 - 处理文档相关事件（变化、保存、打开）
  */
 export class DocumentEventHandler {
+    // 定时器管理器
+    private timerManager: TimerManager = new TimerManager();
     // 添加防抖定时器用于优化刷新频率
     private refreshTimer: NodeJS.Timeout | null = null;
     private readonly REFRESH_DEBOUNCE_DELAY = 150; // 150ms防抖延迟
@@ -85,10 +88,10 @@ export class DocumentEventHandler {
         
         // 使用防抖机制减少频繁刷新
         if (this.refreshTimer) {
-            clearTimeout(this.refreshTimer);
+            this.timerManager.clearTimeout(this.refreshTimer);
         }
         
-        this.refreshTimer = setTimeout(() => {
+        this.refreshTimer = this.timerManager.setTimeout(() => {
             // 只刷新注释装饰器，不刷新注释树
             // 注释树会在注释管理器的智能更新完成后自动刷新
             this.container.commentProvider.refresh();
@@ -101,9 +104,10 @@ export class DocumentEventHandler {
      */
     dispose(): void {
         if (this.refreshTimer) {
-            clearTimeout(this.refreshTimer);
+            this.timerManager.clearTimeout(this.refreshTimer);
             this.refreshTimer = null;
         }
+        this.timerManager.dispose(); // 清理所有定时器
     }
 }
 

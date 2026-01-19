@@ -1,9 +1,11 @@
 import * as vscode from 'vscode';
 import { BookmarkManager } from '../managers/bookmarkManager';
+import { TimerManager } from '../utils/timerUtils';
 
 export class BookmarkDecorationProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
     private disposables: vscode.Disposable[] = [];
+    private timerManager: TimerManager = new TimerManager(); // 定时器管理器
     private updateTimer: NodeJS.Timeout | null = null; // 添加防抖定时器
 
     constructor(private bookmarkManager: BookmarkManager) {
@@ -124,10 +126,10 @@ export class BookmarkDecorationProvider implements vscode.Disposable {
      */
     private debouncedUpdateDecorations(): void {
         if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
+            this.timerManager.clearTimeout(this.updateTimer);
         }
         
-        this.updateTimer = setTimeout(() => {
+        this.updateTimer = this.timerManager.setTimeout(() => {
             this.updateDecorations();
             this.updateTimer = null;
         }, 200); // 书签变化时的防抖延迟
@@ -136,9 +138,12 @@ export class BookmarkDecorationProvider implements vscode.Disposable {
     dispose(): void {
         // 清理防抖定时器
         if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
+            this.timerManager.clearTimeout(this.updateTimer);
             this.updateTimer = null;
         }
+        
+        // 清理所有定时器
+        this.timerManager.dispose();
         
         // 清理装饰类型
         this.decorationType.dispose();

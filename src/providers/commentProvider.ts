@@ -4,6 +4,7 @@ import { createDataUri } from '../utils/utils';
 import axios from 'axios';
 import { logger } from '../utils/logger';
 import { COMMANDS } from '../constants';
+import { TimerManager } from '../utils/timerUtils';
 
 export class CommentProvider implements vscode.Disposable {
     private decorationType: vscode.TextEditorDecorationType;
@@ -11,6 +12,7 @@ export class CommentProvider implements vscode.Disposable {
     private commentManager: CommentManager;
     private isVisible: boolean = true;
     private disposables: vscode.Disposable[] = [];
+    private timerManager: TimerManager = new TimerManager(); // 定时器管理器
     private updateTimer: NodeJS.Timeout | null = null; // 防抖定时器
     private onRefreshCallback?: () => void; // 添加刷新回调
 
@@ -318,6 +320,7 @@ export class CommentProvider implements vscode.Disposable {
     }
 
     public dispose(): void {
+        this.timerManager.dispose(); // 清理所有定时器
         this.decorationType.dispose();
         this.tagDecorationType.dispose();
         this.disposables.forEach(d => d.dispose());
@@ -489,10 +492,10 @@ export class CommentProvider implements vscode.Disposable {
     // 防抖更新方法，避免频繁更新装饰
     private debouncedUpdateDecorations(): void {
         if (this.updateTimer) {
-            clearTimeout(this.updateTimer);
+            this.timerManager.clearTimeout(this.updateTimer);
         }
 
-        this.updateTimer = setTimeout(() => {
+        this.updateTimer = this.timerManager.setTimeout(() => {
             this.updateDecorations();
             this.updateTimer = null;
         }, 100); // 100ms防抖延迟
