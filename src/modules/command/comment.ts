@@ -10,6 +10,7 @@ import { showQuickInputWithTagCompletion } from '../../utils/quickInput';
 import { getFileNameFromPath, getFileNameFromUri } from '../../utils/pathUtils';
 import { logger } from '../../utils/logger';
 import { COMMANDS } from '../../constants';
+import { DialogUtils } from '../../utils/dialogUtils';
 
 /**
  * 更新上下文信息接口
@@ -77,13 +78,14 @@ export function registerCommentCommands(
                     if (fileComments) {
                         const existingComment = fileComments.find(c => c.line === finalLine && c.id !== commentId);
                         if (existingComment) {
-                            const replaceExisting = await vscode.window.showWarningMessage(
+                            const replaceExisting = await DialogUtils.showConfirmDialog(
                                 `第${finalLine + 1}行已经有注释了：\n"${existingComment.content}"\n\n是否要替换它？`,
-                                { modal: true },
-                                '替换现有注释', '取消操作'
+                                '替换现有注释',
+                                '取消操作',
+                                { modal: true }
                             );
                             
-                            if (replaceExisting !== '替换现有注释') {
+                            if (!replaceExisting) {
                                 return;
                             }
                             
@@ -129,37 +131,39 @@ export function registerCommentCommands(
 
     const clearFileCommentsCommand = vscode.commands.registerCommand(COMMANDS.CLEAR_FILE_COMMENTS, async (item) => {
         if (item.contextValue === 'file' && item.filePath) {
-            // 显示确认对话框
             const fileName = getFileNameFromPath(item.filePath);
-            const confirm = await vscode.window.showWarningMessage(
+            await DialogUtils.showConfirmDialog(
                 `确定要清除文件 "${fileName}" 的所有本地注释吗？此操作不可恢复！`,
-                '确定清除', '取消'
+                '确定清除',
+                '取消',
+                {
+                    onConfirm: async () => {
+                        const uri = vscode.Uri.file(item.filePath);
+                        await commentManager.clearFileComments(uri);
+                        tagManager.updateTags(commentManager.getAllComments());
+                        refreshAllCommentViews();
+                    }
+                }
             );
-            
-            if (confirm === '确定清除') {
-                const uri = vscode.Uri.file(item.filePath);
-                await commentManager.clearFileComments(uri);
-                tagManager.updateTags(commentManager.getAllComments());
-                refreshAllCommentViews();
-            }
         }
     });
 
     // 清空所有共享注释命令
     const clearAllSharedCommentsCommand = vscode.commands.registerCommand(COMMANDS.CLEAR_ALL_SHARED_COMMENTS, async () => {
-        // 显示确认对话框
-        const confirm = await vscode.window.showWarningMessage(
+        await DialogUtils.showConfirmDialog(
             '确定要清空所有共享注释吗？此操作不可恢复！',
-            '确定清空', '取消'
-        );
-        
-        if (confirm === '确定清空') {
-            const removedCount = await commentManager.clearAllSharedComments();
-            if (removedCount > 0) {
-                tagManager.updateTags(commentManager.getAllComments());
-                refreshAllCommentViews();
+            '确定清空',
+            '取消',
+            {
+                onConfirm: async () => {
+                    const removedCount = await commentManager.clearAllSharedComments();
+                    if (removedCount > 0) {
+                        tagManager.updateTags(commentManager.getAllComments());
+                        refreshAllCommentViews();
+                    }
+                }
             }
-        }
+        );
     });
 
     // 清空当前文件的共享注释命令
@@ -173,19 +177,20 @@ export function registerCommentCommands(
         const uri = editor.document.uri;
         const fileName = getFileNameFromUri(uri);
         
-        // 显示确认对话框
-        const confirm = await vscode.window.showWarningMessage(
+        await DialogUtils.showConfirmDialog(
             `确定要清空文件 "${fileName}" 的所有共享注释吗？此操作不可恢复！`,
-            '确定清空', '取消'
-        );
-        
-        if (confirm === '确定清空') {
-            const removedCount = await commentManager.clearFileSharedComments(uri);
-            if (removedCount > 0) {
-                tagManager.updateTags(commentManager.getAllComments());
-                refreshAllCommentViews();
+            '确定清空',
+            '取消',
+            {
+                onConfirm: async () => {
+                    const removedCount = await commentManager.clearFileSharedComments(uri);
+                    if (removedCount > 0) {
+                        tagManager.updateTags(commentManager.getAllComments());
+                        refreshAllCommentViews();
+                    }
+                }
             }
-        }
+        );
     });
 
     // 辅助函数：执行编辑注释的核心逻辑
@@ -716,13 +721,14 @@ export function registerCommentCommands(
             if (fileComments) {
                 const existingComment = fileComments.find(c => c.line === newLine && c.id !== comment.id);
                 if (existingComment) {
-                    const replaceExisting = await vscode.window.showWarningMessage(
+                    const replaceExisting = await DialogUtils.showConfirmDialog(
                         `第${newLine + 1}行已经有注释了：\n"${existingComment.content}"\n\n是否要替换它？`,
-                        { modal: true },
-                        '替换现有注释', '取消操作'
+                        '替换现有注释',
+                        '取消操作',
+                        { modal: true }
                     );
                     
-                    if (replaceExisting !== '替换现有注释') {
+                    if (!replaceExisting) {
                         return;
                     }
                     

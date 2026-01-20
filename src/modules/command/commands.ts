@@ -20,6 +20,7 @@ import { AuthWebview } from '../authWebview';
 import { UserInfoWebview } from '../userInfoWebview';
 import { apiService } from '../../apiService';
 import { COMMANDS } from '../../constants';
+import { DialogUtils } from '../../utils/dialogUtils';
 
 export function registerCommands(
     context: vscode.ExtensionContext,
@@ -203,27 +204,29 @@ export function registerCommands(
         });
         
         if (selected && selected.length > 0) {
-            const confirm = await vscode.window.showWarningMessage(
+            await DialogUtils.showConfirmDialog(
                 `确定要删除 ${selected.length} 个项目的注释数据吗？此操作不可恢复！`,
-                '确定删除', '取消'
-            );
-            
-            if (confirm === '确定删除') {
-                let deletedCount = 0;
-                for (const item of selected) {
-                    try {
-                        const filePath = path.join(projectsDir, item.description);
-                        fs.unlinkSync(filePath);
-                        deletedCount++;
-                    } catch (error) {
-                        logger.error(`删除文件失败: ${item.description}`, error);
+                '确定删除',
+                '取消',
+                {
+                    onConfirm: () => {
+                        let deletedCount = 0;
+                        for (const item of selected) {
+                            try {
+                                const filePath = path.join(projectsDir, item.description);
+                                fs.unlinkSync(filePath);
+                                deletedCount++;
+                            } catch (error) {
+                                logger.error(`删除文件失败: ${item.description}`, error);
+                            }
+                        }
+                        
+                        vscode.window.showInformationMessage(
+                            `已删除 ${deletedCount} 个项目的注释数据`
+                        );
                     }
                 }
-                
-                vscode.window.showInformationMessage(
-                    `已删除 ${deletedCount} 个项目的注释数据`
-                );
-            }
+            );
         }
     }
 
@@ -336,18 +339,22 @@ export function registerCommands(
         
         // 检查用户是否已登录
         if (!authManager.isLoggedIn()) {
-            const loginChoice = await vscode.window.showWarningMessage(
+            const loginChoice = await DialogUtils.showConfirmDialog(
                 '上传到云端需要先登录账户',
-                '立即登录', '取消'
+                '立即登录',
+                '取消',
+                {
+                    onConfirm: () => {
+                        // 显示登录界面
+                        AuthWebview.createOrShow(context.extensionUri, authManager);
+                    }
+                }
             );
             
-            if (loginChoice === '立即登录') {
-                // 显示登录界面
-                AuthWebview.createOrShow(context.extensionUri, authManager);
-                return;
-            } else {
+            if (!loginChoice) {
                 return; // 用户取消
             }
+            return;
         }
 
         // 获取项目管理器实例
@@ -356,18 +363,22 @@ export function registerCommands(
         // 获取关联的项目ID
         const associatedProjectId = projectManager.getAssociatedProject();
                     if (!associatedProjectId) {
-                const associateChoice = await vscode.window.showWarningMessage(
+                const associateChoice = await DialogUtils.showConfirmDialog(
                     '当前项目未关联云端项目，需要先关联项目才能上传',
-                    '关联项目', '取消'
+                    '关联项目',
+                    '取消',
+                    {
+                        onConfirm: () => {
+                            // 显示用户信息面板，让用户关联项目
+                            UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+                        }
+                    }
                 );
                 
-                if (associateChoice === '关联项目') {
-                    // 显示用户信息面板，让用户关联项目
-                    UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
-                    return;
-                } else {
+                if (!associateChoice) {
                     return; // 用户取消
                 }
+                return;
             }
 
         // 显示上传进度
@@ -601,13 +612,14 @@ export function registerCommands(
 
             // 如果是替换模式，再次确认
             if (importMode.mode === 'replace') {
-                const confirm = await vscode.window.showWarningMessage(
+                const confirm = await DialogUtils.showConfirmDialog(
                     '确定要替换所有现有注释数据吗？\n\n此操作将删除当前项目的所有注释，且不可恢复！',
-                    { modal: true },
-                    '确定替换', '取消'
+                    '确定替换',
+                    '取消',
+                    { modal: true }
                 );
                 
-                if (confirm !== '确定替换') {
+                if (!confirm) {
                     return;
                 }
             }
@@ -673,18 +685,22 @@ export function registerCommands(
             
             // 检查用户是否已登录
             if (!authManager.isLoggedIn()) {
-                const loginChoice = await vscode.window.showWarningMessage(
+                const loginChoice = await DialogUtils.showConfirmDialog(
                     '从服务端导入需要先登录账户',
-                    '立即登录', '取消'
+                    '立即登录',
+                    '取消',
+                    {
+                        onConfirm: () => {
+                            // 显示登录界面
+                            AuthWebview.createOrShow(context.extensionUri, authManager);
+                        }
+                    }
                 );
                 
-                if (loginChoice === '立即登录') {
-                    // 显示登录界面
-                    AuthWebview.createOrShow(context.extensionUri, authManager);
-                    return;
-                } else {
+                if (!loginChoice) {
                     return; // 用户取消
                 }
+                return;
             }
 
             // 获取项目管理器实例
@@ -693,18 +709,22 @@ export function registerCommands(
             // 获取关联的项目ID
             const associatedProjectId = projectManager.getAssociatedProject();
             if (!associatedProjectId) {
-                const associateChoice = await vscode.window.showWarningMessage(
+                const associateChoice = await DialogUtils.showConfirmDialog(
                     '当前项目未关联云端项目，需要先关联项目才能导入',
-                    '关联项目', '取消'
+                    '关联项目',
+                    '取消',
+                    {
+                        onConfirm: () => {
+                            // 显示用户信息面板，让用户关联项目
+                            UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
+                        }
+                    }
                 );
                 
-                if (associateChoice === '关联项目') {
-                    // 显示用户信息面板，让用户关联项目
-                    UserInfoWebview.createOrShow(context.extensionUri, authManager, projectManager, commentManager, bookmarkManager, tagManager);
-                    return;
-                } else {
+                if (!associateChoice) {
                     return; // 用户取消
                 }
+                return;
             }
 
             // 显示下载进度
@@ -780,13 +800,14 @@ export function registerCommands(
 
                     // 如果是替换模式，再次确认
                     if (importMode.mode === 'replace') {
-                        const confirm = await vscode.window.showWarningMessage(
+                        const confirm = await DialogUtils.showConfirmDialog(
                             '确定要替换所有现有注释数据吗？\n\n此操作将删除当前项目的所有注释，且不可恢复！',
-                            { modal: true },
-                            '确定替换', '取消'
+                            '确定替换',
+                            '取消',
+                            { modal: true }
                         );
                         
-                        if (confirm !== '确定替换') {
+                        if (!confirm) {
                             return;
                         }
                     }
@@ -880,16 +901,17 @@ export function registerCommands(
             return;
         }
         
-        const result = await vscode.window.showWarningMessage(
+        await DialogUtils.showConfirmDialog(
             '确定要登出吗？',
             '确定',
-            '取消'
+            '取消',
+            {
+                onConfirm: async () => {
+                    await authManager.logout();
+                    vscode.window.showInformationMessage('已成功登出');
+                }
+            }
         );
-        
-        if (result === '确定') {
-            await authManager.logout();
-            vscode.window.showInformationMessage('已成功登出');
-        }
     });
 
     // 刷新共享注释命令
