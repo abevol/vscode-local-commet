@@ -56,7 +56,7 @@ export class DocumentEventHandler {
             // 检查是否是真正的文档内容变化（而不是装饰器更新导致的）
             // 如果 contentChanges 为空，可能是装饰器更新触发的假事件
             if (event.contentChanges.length === 0) {
-                logger.info('[DocumentEventHandler] 文档变化事件没有实际内容变化，跳过处理');
+                logger.debug('[DocumentEventHandler] 文档变化事件没有实际内容变化，跳过处理');
                 return;
             }
 

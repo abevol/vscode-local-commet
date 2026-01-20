@@ -218,7 +218,7 @@ export function registerCommentCommands(
                 fileExists = true;
             } catch (error) {
                 // 文件不存在，但这不应该阻止编辑注释
-                logger.info(`文件不存在: ${uri.fsPath}，但仍允许编辑注释`);
+                logger.debug(`文件不存在: ${uri.fsPath}，但仍允许编辑注释`);
                 fileExists = false;
             }
 

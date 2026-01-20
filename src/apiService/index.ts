@@ -251,7 +251,7 @@ export const apiService = ApiService.getInstance();
 // 1. 基本GET请求 - 使用预定义的路由
 try {
     const user = await apiService.get<UserInfo>(ApiRoutes.auth.me);
-    logger.info('用户信息:', user);
+    logger.debug('用户信息:', user);
 } catch (error) {
     logger.error('获取用户信息失败:', error.message);
 }
@@ -263,7 +263,7 @@ try {
         filePath: '/path/to/file.ts',
         line: 10
     });
-    logger.info('创建注释成功:', result);
+    logger.debug('创建注释成功:', result);
 } catch (error) {
     logger.error('创建注释失败:', error.message);
 }
@@ -274,7 +274,7 @@ try {
         username: 'user',
         password: 'password'
     }, { skipAuth: true });
-    logger.info('登录成功:', loginResult);
+    logger.debug('登录成功:', loginResult);
 } catch (error) {
     logger.error('登录失败:', error.message);
 }
@@ -283,7 +283,7 @@ try {
 try {
     const commentId = '12345';
     const sharedComments = await apiService.get(ApiRoutes.comment.getSharedComments(commentId));
-    logger.info('获取共享注释成功:', sharedComments);
+    logger.debug('获取共享注释成功:', sharedComments);
 } catch (error) {
     logger.error('获取共享注释失败:', error.message);
 }
@@ -294,7 +294,7 @@ try {
         retryCount: 3, 
         retryDelay: 1000 
     });
-    logger.info('获取项目成功:', projects);
+    logger.debug('获取项目成功:', projects);
 } catch (error) {
     logger.error('获取项目失败:', error.message);
 }

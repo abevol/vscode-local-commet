@@ -51,7 +51,7 @@ export class AuthManager {
                 const newApiUrl = vscode.workspace.getConfiguration('local-comment').get<string>('server.apiUrl');
                 if (newApiUrl) {
                     apiService.updateBaseURL(newApiUrl);
-                    logger.info(`API URL updated to: ${newApiUrl}`);
+                    logger.debug(`API URL updated to: ${newApiUrl}`);
                 }
             }
         });
@@ -77,7 +77,7 @@ export class AuthManager {
                         // 更新用户信息
                         this.currentSession.user = user;
                         await this.saveSession(this.currentSession);
-                        logger.info('已加载有效会话');
+                        logger.debug('已加载有效会话');
                     } catch (error) {
                         logger.error('验证用户信息失败:', error);
                         // 如果验证失败，可能是因为token过期，尝试刷新

@@ -23,7 +23,7 @@ export class AuthEventHandler {
 
         // 订阅认证管理器初始化完成事件
         this.container.authManager.onInitialized(async () => {
-            logger.info('✅ 认证管理器初始化完成，开始处理共享注释');
+            logger.debug('✅ 认证管理器初始化完成，开始处理共享注释');
             await this.handleSharedCommentsAfterInit();
         });
 
@@ -96,7 +96,7 @@ export class AuthEventHandler {
     private async handleSharedCommentsAfterInit(): Promise<void> {
         const isLoggedIn = this.container.authManager.isLoggedIn();
         if (!isLoggedIn) {
-            logger.info('用户未登录，某些功能可能受限');
+            logger.debug('用户未登录，某些功能可能受限');
             // 用户未登录时，清除所有共享注释
             try {
                 await this.container.commentManager.handleSharedCommentsByAuthStatus(false);
@@ -118,21 +118,21 @@ export class AuthEventHandler {
                 if (associatedProjectId) {
                     const projectId = parseInt(associatedProjectId, 10);
                     if (!isNaN(projectId)) {
-                        logger.info(`🔄 自动加载项目 ${projectId} 的共享注释...`);
+                        logger.debug(`🔄 自动加载项目 ${projectId} 的共享注释...`);
                         const sharedComments = await this.container.commentManager.getProjectSharedComments(projectId);
                         if (sharedComments && sharedComments.length > 0) {
-                            logger.info(`✅ 自动加载了 ${sharedComments.length} 条共享注释`);
+                            logger.debug(`✅ 自动加载了 ${sharedComments.length} 条共享注释`);
                             // 刷新注释显示
                             this.container.commentProvider.refresh();
                             this.container.sharedCommentProvider.refresh();
                             this.container.commentTreeProvider.refresh();
                             this.container.sharedCommentTreeProvider.refresh();
                         } else {
-                            logger.info('ℹ️ 项目中没有共享注释');
+                            logger.debug('ℹ️ 项目中没有共享注释');
                         }
                     }
                 } else {
-                    logger.info('ℹ️ 用户未关联项目，跳过自动加载共享注释');
+                    logger.debug('ℹ️ 用户未关联项目，跳过自动加载共享注释');
                 }
             } catch (error) {
                 logger.error('自动加载共享注释失败:', error);
