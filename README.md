@@ -225,6 +225,12 @@ If you encounter problems during use, please provide feedback through:
 
 ### Change Log
 
+## [1.3.2] - 2026-1-22
+
+- ✨ Code in Markdown preview now has syntax highlighting, and users can adjust code color themes in settings
+- 🔨 Adjusted the layout of the Markdown editor, reduced margins to free up more content space
+- 🔨 Other code structure optimizations
+
 ## [1.3.1] - 2025-12-26
 
 - 🔨 Redefined the way users jump to tags. To avoid conflicts with `$latex$` definition in latex formulas, the format has been changed from `$tag` to `${tag}`. Users who previously used tag labels need to manually modify the tag format.
