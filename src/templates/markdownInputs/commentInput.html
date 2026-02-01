@@ -13,10 +13,22 @@
     <div class="container">
         ${contextHtml}
         <div class="header">
-            <div class="prompt">${escapedPrompt}</div>
-            <div class="help-text">
-                支持Markdown语法，换行符请使用回车或者 \n 使用 ${标签名} 声明标签，使用 @标签名 引用标签<br>
-                支持 LaTeX 公式：行内公式使用 $公式$，块级公式使用 $$公式$$
+            <div class="prompt-row">
+                <span class="prompt">${escapedPrompt}</span>
+                <div class="help-hint-wrapper">
+                    <div class="help-hint-trigger">
+                        <span class="help-hint-icon" aria-label="支持的功能">!</span>
+                        <div class="help-popover">
+                        <div class="help-popover-title">支持的功能</div>
+                        <ul class="help-popover-list">
+                            <li>支持 Markdown 语法</li>
+                            <li>支持 Mermaid 流程图语法</li>
+                            <li>标签：使用 <code>${标签名}</code> 声明，使用 <code>@标签名</code> 引用</li>
+                            <li>LaTeX 公式：行内使用 <code>$公式$</code>，块级使用 <code>$$公式$$</code></li>
+                        </ul>
+                    </div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -48,6 +60,88 @@
     <script>
         // 将标签建议传递给主脚本
         window.tagSuggestions = '${tagSuggestions}';
+        
+        // 动态调整弹出框位置，避免超出视窗边界
+        (function() {
+            const wrapper = document.querySelector('.help-hint-wrapper');
+            const popover = document.querySelector('.help-popover');
+            const trigger = document.querySelector('.help-hint-trigger');
+            
+            if (!wrapper || !popover || !trigger) return;
+            
+            const MARGIN = 10; // 距离视窗边缘的最小距离
+            let resizeTimer = null;
+            let scrollTimer = null;
+            
+            function adjustPopoverPosition() {
+                // 检查弹出框是否可见（通过 CSS hover 控制）
+                const computedStyle = window.getComputedStyle(popover);
+                const isVisible = computedStyle.visibility === 'visible' && 
+                                  computedStyle.opacity !== '0';
+                
+                // 如果不可见，临时显示以测量位置
+                if (!isVisible) {
+                    popover.style.visibility = 'visible';
+                    popover.style.opacity = '0';
+                    popover.style.pointerEvents = 'none';
+                }
+                
+                const triggerRect = trigger.getBoundingClientRect();
+                const viewportWidth = window.innerWidth;
+                
+                // 重置定位样式
+                popover.style.left = '';
+                popover.style.right = '';
+                
+                // 强制重排以获取最新位置
+                void popover.offsetWidth;
+                
+                const popoverRect = popover.getBoundingClientRect();
+                
+                // 检查并调整位置
+                if (popoverRect.right > viewportWidth - MARGIN) {
+                    // 超出右边界，右对齐到图标
+                    popover.style.left = 'auto';
+                    popover.style.right = '0';
+                } else if (popoverRect.left < MARGIN) {
+                    // 超出左边界，调整到视窗边缘
+                    popover.style.left = (MARGIN - triggerRect.left) + 'px';
+                } else {
+                    // 默认左对齐到图标
+                    popover.style.left = '0';
+                }
+                
+                // 如果之前不可见，恢复隐藏状态
+                if (!isVisible) {
+                    popover.style.visibility = '';
+                    popover.style.opacity = '';
+                    popover.style.pointerEvents = '';
+                }
+            }
+            
+            // 监听鼠标悬停
+            wrapper.addEventListener('mouseenter', () => {
+                // 使用 requestAnimationFrame 确保 CSS hover 已生效
+                requestAnimationFrame(() => {
+                    requestAnimationFrame(adjustPopoverPosition);
+                });
+            });
+            
+            // 监听窗口大小变化（防抖处理）
+            window.addEventListener('resize', () => {
+                clearTimeout(resizeTimer);
+                resizeTimer = setTimeout(adjustPopoverPosition, 150);
+            });
+            
+            // 监听滚动（防抖处理，只在弹出框可见时调整）
+            window.addEventListener('scroll', () => {
+                const computedStyle = window.getComputedStyle(popover);
+                if (computedStyle.visibility === 'visible') {
+                    clearTimeout(scrollTimer);
+                    scrollTimer = setTimeout(adjustPopoverPosition, 50);
+                }
+            }, true);
+        })();
     </script>
     <script src="${jsUri}"></script>
 </body>
