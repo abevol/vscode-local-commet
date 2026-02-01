@@ -142,30 +142,101 @@
 .header {
     margin-bottom: 20px;
 }
+.prompt-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
 .prompt {
     font-size: 16px;
     font-weight: bold;
-    margin-bottom: 10px;
     color: var(--vscode-textPreformat-foreground);
 }
-.help-text {
+/* 提示图标 + 悬停弹出层 */
+.help-hint-wrapper {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* 扩大悬停区域，便于鼠标移到弹出层时不消失 */
+    padding-top: 200px;
+    margin-top: -200px;
+}
+.help-hint-trigger {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+.help-hint-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background-color: var(--vscode-badge-background);
+    color: var(--vscode-badge-foreground);
+    font-size: 12px;
+    font-weight: bold;
+    cursor: help;
+    flex-shrink: 0;
+}
+.help-popover {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 8px);
+    /* 在图标下方显示，左对齐，JavaScript 会动态调整位置避免超出边界 */
+    min-width: 260px;
+    max-width: 320px;
+    width: max-content;
+    padding: 10px 12px;
+    background-color: var(--vscode-editorWidget-background);
+    border: 1px solid var(--vscode-editorWidget-border);
+    border-radius: 6px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+    z-index: 10000;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 0.15s ease, visibility 0.15s ease;
+}
+.help-hint-wrapper:hover .help-popover {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+}
+.help-popover-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: var(--vscode-foreground);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--vscode-panel-border);
+}
+.help-popover-list {
+    margin: 0;
+    padding-left: 18px;
     font-size: 12px;
     color: var(--vscode-descriptionForeground);
-    margin-bottom: 15px;
-    line-height: 1.4;
+    line-height: 1.6;
+}
+.help-popover-list li {
+    margin-bottom: 4px;
+}
+.help-popover-list li:last-child {
+    margin-bottom: 0;
+}
+.help-popover-list code {
+    padding: 1px 4px;
+    font-size: 11px;
+    background-color: var(--vscode-textCodeBlock-background);
+    border-radius: 3px;
+    color: var(--vscode-textPreformat-foreground);
 }
 .input-area {
     margin-bottom: 20px;
-    position: relative;
-}
-.resize-hint {
-    position: absolute;
-    bottom: 8px;
-    right: 12px;
-    color: var(--vscode-descriptionForeground);
-    font-size: 11px;
-    pointer-events: none;
-    opacity: 0.6;
 }
 textarea {
     width: 100%;
@@ -180,7 +251,7 @@ textarea {
     font-family: var(--vscode-editor-font-family);
     font-size: var(--vscode-editor-font-size);
     line-height: 1.5;
-    resize: both;
+    resize: vertical;
     box-sizing: border-box;
 }
 textarea:focus {
@@ -366,8 +437,7 @@ button {
 /* Maximized state */
 .container.maximized .input-area,
 .container.maximized .button-group,
-.container.maximized .header,
-.container.maximized .resize-hint {
+.container.maximized .header {
     display: none;
 }
 

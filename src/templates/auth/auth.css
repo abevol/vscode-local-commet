@@ -1,17 +1,38 @@
 @import '../common/public.css';
 
-.container {
-    max-width: 400px;
-    margin: 0 auto;
-    background: var(--vscode-panel-background);
-    border-radius: 8px;
-    padding: 30px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+/* 登录页铺满整个 webview */
+html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
 }
 
+.container {
+    width: 100%;
+    min-height: 100%;
+    margin: 0;
+    padding: 30px;
+    padding-top: 18vh;  /* 内容偏上，避免视觉上偏靠底部 */
+    box-sizing: border-box;
+    background: var(--vscode-panel-background);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+}
+
+/* 表单区域保持合理宽度并居中 */
 .header {
     text-align: center;
     margin-bottom: 30px;
+    max-width: 400px;
+    width: 100%;
+}
+
+#login-content {
+    max-width: 400px;
+    width: 100%;
 }
 
 .header h1 {
