@@ -99,6 +99,15 @@ export class StoragePathUtils {
     }
 
     /**
+     * 判断新存储是否已启用（.vscode/local-comment 下已有注释或书签数据文件）
+     */
+    static hasNewStorageEnabled(paths: StoragePaths, workspacePath: string): boolean {
+        const hasNewComments = this.getCurrentCommentsFile(paths, workspacePath) !== null;
+        const hasNewBookmarks = this.getCurrentBookmarksFile(paths, workspacePath) !== null;
+        return hasNewComments || hasNewBookmarks;
+    }
+
+    /**
      * 从 VSCode Settings 加载存储配置（注释/书签配置文件名）
      */
     static loadConfig(_workspacePath: string): StorageConfig {

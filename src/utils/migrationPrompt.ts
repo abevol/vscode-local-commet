@@ -22,6 +22,9 @@ export async function checkUnifiedMigration(
     const workspacePath = workspaceFolders[0].uri.fsPath;
     const paths = StoragePathUtils.getStoragePaths(context, workspacePath);
 
+    // 若新存储已启用，则不再询问迁移
+    if (StoragePathUtils.hasNewStorageEnabled(paths, workspacePath)) return;
+
     const hasOldComments = StoragePathUtils.fileExists(paths.oldCommentsFile);
     const hasOldBookmarks = StoragePathUtils.fileExists(paths.oldBookmarksFile);
     if (!hasOldComments && !hasOldBookmarks) return;
