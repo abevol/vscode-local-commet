@@ -188,7 +188,7 @@ A: No. Comment data is only stored locally, completely private, and won't be see
 ### Storage Location
 
 - **Current project storage**:
-  - Since v1.3.4, data is stored under `.vscode/local-comment/` in the current project
+  - Since v1.4.0, data is stored under `.vscode/local-comment/` in the current project
   - For projects with existing legacy data, you can migrate to the project directory `.vscode/local-comment/` in two ways:
     - 1. Click the migrate button in the project popup
     - 2. Open the Command Palette (F1), search for "local comment", find and run the migrate command
@@ -212,7 +212,7 @@ another-project-g7h8i9j0k1l2.json
 
 ### Multi-group comments and bookmarks
 
-Since v1.3.4, you can use multiple independent groups of local comments and bookmarks in the same project.
+Since v1.4.0, you can use multiple independent groups of local comments and bookmarks in the same project.
 
 - **Comment data files**: Stored under `.vscode/local-comment/comments/`. The default file is `comments.json`. You can add multiple json files (e.g. `work.json`, `study.json`) in this directory to separate groups such as "work notes" and "study notes".
 - **Bookmark data files**: Stored under `.vscode/local-comment/bookmarks/`. The default file is `bookmarks.json`; multiple bookmark config files are supported in the same way.
