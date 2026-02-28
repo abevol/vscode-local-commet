@@ -138,7 +138,7 @@ export class CommentManager {
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const paths = StoragePathUtils.getStoragePaths(context, workspacePath);
-            const currentFile = StoragePathUtils.getCurrentCommentsFile(paths, workspacePath);
+            const currentFile = StoragePathUtils.getCurrentCommentsFile(paths);
             return currentFile || (context.globalStorageUri?.fsPath || context.extensionPath) + path.sep + 'local-comments.json';
         }
         const globalStorageDir = context.globalStorageUri?.fsPath || context.extensionPath;
@@ -156,7 +156,7 @@ export class CommentManager {
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const paths = StoragePathUtils.getStoragePaths(this.context, workspacePath);
 
-            const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths, workspacePath);
+            const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths);
             const hasOldComments = StoragePathUtils.fileExists(paths.oldCommentsFile);
             const hasOldBookmarks = StoragePathUtils.fileExists(paths.oldBookmarksFile);
 
@@ -184,22 +184,7 @@ export class CommentManager {
                 this.comments = {};
                 this.shareComments = {};
             } else {
-                // 完全没有旧数据的新项目：静默创建项目下的默认配置文件
-                try {
-                    StoragePathUtils.ensureNewPathExists(paths);
-                    const defaultFile = path.join(paths.commentsDir, 'comments.json');
-                    const defaultData = { comments: {}, shareComments: {} };
-                    fs.writeFileSync(defaultFile, JSON.stringify(defaultData, null, 2));
-                    const config = StoragePathUtils.loadConfig(workspacePath);
-                    config.comments = 'comments.json';
-                    await StoragePathUtils.saveConfig(config);
-                } catch (err) {
-                    if (StoragePathUtils.isWritePermissionError(err)) {
-                        logger.warn('无法创建默认配置（只读或权限不足）', err);
-                    } else {
-                        throw err;
-                    }
-                }
+                // 完全没有旧数据的新项目：暂不创建本地目录，直到用户实际使用插件功能
                 this.comments = {};
                 this.shareComments = {};
             }
@@ -269,12 +254,12 @@ export class CommentManager {
                 const oldData = fs.readFileSync(paths.oldCommentsFile, 'utf8');
                 const defaultCommentsFile = path.join(paths.commentsDir, 'comments.json');
                 fs.writeFileSync(defaultCommentsFile, oldData);
-                const currentConfig = StoragePathUtils.loadConfig(workspacePath);
+                const currentConfig = StoragePathUtils.loadConfig(paths);
                 const config: StorageConfig = {
                     comments: 'comments.json',
                     bookmarks: currentConfig.bookmarks || 'bookmarks.json'
                 };
-                await StoragePathUtils.saveConfig(config);
+                await StoragePathUtils.saveConfig(paths, config);
                 this.comments = {};
                 this.shareComments = {};
                 await this.loadCommentsFromPath(defaultCommentsFile);
@@ -343,7 +328,7 @@ export class CommentManager {
                     throw err;
                 }
 
-                const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths, workspacePath);
+                const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths);
 
                 if (currentCommentsFile) {
                     try {
@@ -360,9 +345,9 @@ export class CommentManager {
                 } else {
                     const defaultFile = path.join(paths.commentsDir, 'comments.json');
                     fs.writeFileSync(defaultFile, JSON.stringify(dataToSave, null, 2));
-                    const config = StoragePathUtils.loadConfig(workspacePath);
+                    const config = StoragePathUtils.loadConfig(paths);
                     config.comments = 'comments.json';
-                    await StoragePathUtils.saveConfig(config);
+                    await StoragePathUtils.saveConfig(paths, config);
                 }
             } else {
                 const storageDir = path.dirname(this.storageFile);
@@ -1108,9 +1093,9 @@ export class CommentManager {
         }
 
         await this.saveComments();
-        const config = StoragePathUtils.loadConfig(workspacePath);
+        const config = StoragePathUtils.loadConfig(paths);
         config.comments = configFileName;
-        await StoragePathUtils.saveConfig(config);
+        await StoragePathUtils.saveConfig(paths, config);
         await this.loadComments();
         vscode.window.showInformationMessage(`已切换到注释配置: ${configFileName}`);
     }
@@ -1160,7 +1145,7 @@ export class CommentManager {
         if (!workspaceFolders || workspaceFolders.length === 0) return 'default';
         const workspacePath = workspaceFolders[0].uri.fsPath;
         const paths = StoragePathUtils.getStoragePaths(this.context, workspacePath);
-        const config = StoragePathUtils.loadConfig(workspacePath);
+        const config = StoragePathUtils.loadConfig(paths);
         return config.comments || 'comments.json';
     }
 

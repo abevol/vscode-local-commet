@@ -26,7 +26,15 @@ export class StoragePathUtils {
         context: vscode.ExtensionContext,
         workspacePath: string
     ): StoragePaths {
-        const newPath = path.join(workspacePath, '.vscode', 'local-comment');
+        let newPath: string;
+        if (context.storageUri) {
+            newPath = path.join(context.storageUri.fsPath, 'local-comment');
+        } else {
+            const globalStorageDir = context.globalStorageUri?.fsPath || context.extensionPath;
+            const pathHash = crypto.createHash('md5').update(workspacePath).digest('hex');
+            newPath = path.join(globalStorageDir, 'workspace-storage', pathHash, 'local-comment');
+        }
+
         const commentsDir = path.join(newPath, 'comments');
         const bookmarksDir = path.join(newPath, 'bookmarks');
 
@@ -57,8 +65,8 @@ export class StoragePathUtils {
     /**
      * 获取当前使用的注释配置文件路径
      */
-    static getCurrentCommentsFile(paths: StoragePaths, workspacePath: string): string | null {
-        const config = this.loadConfig(workspacePath);
+    static getCurrentCommentsFile(paths: StoragePaths): string | null {
+        const config = this.loadConfig(paths);
         const fileName = config.comments || 'comments.json';
         const commentsFilePath = path.join(paths.commentsDir, fileName);
 
@@ -69,7 +77,7 @@ export class StoragePathUtils {
         const defaultFile = path.join(paths.commentsDir, 'comments.json');
         if (fs.existsSync(defaultFile)) {
             const updatedConfig = { ...config, comments: 'comments.json' };
-            this.saveConfig(updatedConfig).catch(e => logger.error('saveConfig failed', e));
+            this.saveConfig(paths, updatedConfig).catch(e => logger.error('saveConfig failed', e));
             return defaultFile;
         }
 
@@ -79,8 +87,8 @@ export class StoragePathUtils {
     /**
      * 获取当前使用的书签配置文件路径
      */
-    static getCurrentBookmarksFile(paths: StoragePaths, workspacePath: string): string | null {
-        const config = this.loadConfig(workspacePath);
+    static getCurrentBookmarksFile(paths: StoragePaths): string | null {
+        const config = this.loadConfig(paths);
         const fileName = config.bookmarks || 'bookmarks.json';
         const bookmarksFilePath = path.join(paths.bookmarksDir, fileName);
 
@@ -91,7 +99,7 @@ export class StoragePathUtils {
         const defaultFile = path.join(paths.bookmarksDir, 'bookmarks.json');
         if (fs.existsSync(defaultFile)) {
             const updatedConfig = { ...config, bookmarks: 'bookmarks.json' };
-            this.saveConfig(updatedConfig).catch(e => logger.error('saveConfig failed', e));
+            this.saveConfig(paths, updatedConfig).catch(e => logger.error('saveConfig failed', e));
             return defaultFile;
         }
 
@@ -101,16 +109,30 @@ export class StoragePathUtils {
     /**
      * 判断新存储是否已启用（.vscode/local-comment 下已有注释或书签数据文件）
      */
-    static hasNewStorageEnabled(paths: StoragePaths, workspacePath: string): boolean {
-        const hasNewComments = this.getCurrentCommentsFile(paths, workspacePath) !== null;
-        const hasNewBookmarks = this.getCurrentBookmarksFile(paths, workspacePath) !== null;
+    static hasNewStorageEnabled(paths: StoragePaths): boolean {
+        const hasNewComments = this.getCurrentCommentsFile(paths) !== null;
+        const hasNewBookmarks = this.getCurrentBookmarksFile(paths) !== null;
         return hasNewComments || hasNewBookmarks;
     }
 
     /**
      * 从 VSCode Settings 加载存储配置（注释/书签配置文件名）
      */
-    static loadConfig(_workspacePath: string): StorageConfig {
+    static loadConfig(paths: StoragePaths): StorageConfig {
+        const configPath = path.join(paths.newPath, 'config.json');
+        if (fs.existsSync(configPath)) {
+            try {
+                const data = fs.readFileSync(configPath, 'utf8');
+                const parsed = JSON.parse(data) as StorageConfig;
+                return {
+                    comments: parsed.comments ?? 'comments.json',
+                    bookmarks: parsed.bookmarks ?? 'bookmarks.json'
+                };
+            } catch (err) {
+                logger.error('Failed to read config.json', err);
+            }
+        }
+
         const vscodeConfig = vscode.workspace.getConfiguration('local-comment');
         const commentsConfig = vscodeConfig.get<string>('storage.commentsConfig');
         const bookmarksConfig = vscodeConfig.get<string>('storage.bookmarksConfig');
@@ -121,12 +143,12 @@ export class StoragePathUtils {
     }
 
     /**
-     * 将存储配置保存到 VSCode Workspace Settings
+     * 将存储配置保存到 storageUri 目录下的 config.json
      */
-    static async saveConfig(config: StorageConfig): Promise<void> {
-        const vscodeConfig = vscode.workspace.getConfiguration('local-comment');
-        await vscodeConfig.update('storage.commentsConfig', config.comments, vscode.ConfigurationTarget.Workspace);
-        await vscodeConfig.update('storage.bookmarksConfig', config.bookmarks, vscode.ConfigurationTarget.Workspace);
+    static async saveConfig(paths: StoragePaths, config: StorageConfig): Promise<void> {
+        this.ensureNewPathExists(paths);
+        const configPath = path.join(paths.newPath, 'config.json');
+        fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
     }
 
     /**

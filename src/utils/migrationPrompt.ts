@@ -21,8 +21,8 @@ export async function checkUnifiedMigration(
 
     const hasOldComments = StoragePathUtils.fileExists(paths.oldCommentsFile);
     const hasOldBookmarks = StoragePathUtils.fileExists(paths.oldBookmarksFile);
-    const hasNewComments = StoragePathUtils.getCurrentCommentsFile(paths, workspacePath) !== null;
-    const hasNewBookmarks = StoragePathUtils.getCurrentBookmarksFile(paths, workspacePath) !== null;
+    const hasNewComments = StoragePathUtils.getCurrentCommentsFile(paths) !== null;
+    const hasNewBookmarks = StoragePathUtils.getCurrentBookmarksFile(paths) !== null;
 
     // 仅当存在“旧路径有数据且新路径尚无该文件”时才提示迁移
     const needMigrateComments = hasOldComments && !hasNewComments;

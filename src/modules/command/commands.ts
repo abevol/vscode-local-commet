@@ -40,7 +40,7 @@ export function registerCommands(
         if (workspaceFolders && workspaceFolders.length > 0) {
             const workspacePath = workspaceFolders[0].uri.fsPath;
             const paths = StoragePathUtils.getStoragePaths(commentManager.getContext(), workspacePath);
-            const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths, workspacePath);
+            const currentCommentsFile = StoragePathUtils.getCurrentCommentsFile(paths);
             const currentCommentsConfig = commentManager.getCurrentCommentsConfig();
             const availableCommentsConfigs = commentManager.listAvailableCommentsConfigs();
 
