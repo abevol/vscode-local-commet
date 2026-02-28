@@ -180,7 +180,7 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
             const isMatchable = matchedComment !== undefined;
             
             // 构建标签
-            const label = `第${(matchedComment?.line || comment.line) + 1}行: ${comment.content}`;
+            const label = `${comment.content}`;
             
             const commentNode = new CommentTreeItem(
                 label,
@@ -251,7 +251,7 @@ export class CommentTreeProvider implements vscode.TreeDataProvider<CommentTreeI
 
         for (const bookmark of bookmarks) {
             // 构建书签显示标签，包含行内容
-            let label = `第${bookmark.line + 1}行: `;
+            let label = ``;
             
             // 如果有自定义标签，优先显示标签
             if (bookmark.label) {

@@ -113,7 +113,7 @@ export class SharedCommentTreeProvider implements vscode.TreeDataProvider<Shared
             const isMatched = comment.isMatched !== false; // 默认为true，只有明确设置为false时才为未匹配
             
             // 构建标签，包含用户信息和注释内容
-            let label = `第${comment.line + 1}行: `;
+            let label = ``;
             
             // 添加用户信息
             if (comment.username) {
